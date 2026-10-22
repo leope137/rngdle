@@ -1,0 +1,772 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>RNGdle</title>
+<meta name="description" content="Roll a six digit number, collect badges, and beat your friends.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,600;12..96,800&family=Instrument+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@500;600&display=swap">
+<style>
+[hidden] { display: none !important; }
+html { padding-top: env(safe-area-inset-top, 0px); padding-bottom: env(safe-area-inset-bottom, 0px); }
+body { margin: 0; }
+img { max-width: 100%; }
+</style>
+<style>
+/* Layout: one narrow column. A ticket stub holds today's roll, then stats, the badge collection, history. */
+:root {
+  --paper: #EBF0EE; --card: #FFFFFF; --ink: #15213A; --muted: #5B6773; --line: #CBD5D1;
+  --accent: #2B55E0; --accent-ink: #FFFFFF; --hot: #E9AE00;
+  --t-common: #7A858F; --t-uncommon: #1F9A5B; --t-rare: #2B6FE0; --t-epic: #8A3FD1; --t-legend: #B57A00;
+  --t-bg: rgba(21,33,58,.05);
+  --danger: #C2412D; --w1: #D9E3F7; --w2: #CDEBD9; --w3: #F6E3B0; --w4: #E7D3F5; --wheel-ink: #15213A;
+  --f-display: "Bricolage Grotesque", "Arial Black", system-ui, sans-serif;
+  --f-body: "Instrument Sans", system-ui, -apple-system, "Segoe UI", sans-serif;
+  --f-mono: "IBM Plex Mono", ui-monospace, "SFMono-Regular", Menlo, monospace;
+}
+@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) {
+  --paper: #0E1525; --card: #172139; --ink: #E6EBF5; --muted: #94A1B9; --line: #283655;
+  --accent: #7E9CFF; --accent-ink: #0E1525; --hot: #F4C64A;
+  --t-common: #9AA4B2; --t-uncommon: #4CCB8A; --t-rare: #6FA0FF; --t-epic: #B989F2; --t-legend: #F4C64A;
+  --t-bg: rgba(230,235,245,.06); --danger: #FF7A63; --w1: #22305A; --w2: #1E4436; --w3: #4F421C; --w4: #3D2C57; --wheel-ink: #E6EBF5; color-scheme: dark; } }
+:root[data-theme="dark"] {
+  --paper: #0E1525; --card: #172139; --ink: #E6EBF5; --muted: #94A1B9; --line: #283655;
+  --accent: #7E9CFF; --accent-ink: #0E1525; --hot: #F4C64A;
+  --t-common: #9AA4B2; --t-uncommon: #4CCB8A; --t-rare: #6FA0FF; --t-epic: #B989F2; --t-legend: #F4C64A;
+  --t-bg: rgba(230,235,245,.06); --danger: #FF7A63; --w1: #22305A; --w2: #1E4436; --w3: #4F421C; --w4: #3D2C57; --wheel-ink: #E6EBF5; color-scheme: dark; }
+
+* { box-sizing: border-box; }
+body { background: var(--paper); color: var(--ink); font-family: var(--f-body); font-size: 15px; line-height: 1.5;
+  padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px)); padding-block: 28px 56px; }
+.wrap { max-width: 620px; margin: 0 auto; display: grid; gap: 28px; }
+header { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; flex-wrap: wrap; }
+h1 { font-family: var(--f-display); font-weight: 800; font-size: 2.1rem; letter-spacing: -.02em; margin: 0; line-height: 1; }
+h1 span { color: var(--accent); }
+.date { font-family: var(--f-mono); font-size: .8rem; color: var(--muted); text-transform: uppercase; letter-spacing: .08em; }
+h2 { font-family: var(--f-display); font-weight: 600; font-size: 1.05rem; margin: 0 0 12px; text-wrap: balance; }
+h2 .ct { color: var(--muted); font-weight: 500; }
+
+/* ticket */
+.ticket { position: relative; background: var(--card); border-radius: 14px; padding: 26px 22px 22px; display: grid; gap: 16px;
+  box-shadow: 0 1px 0 var(--line), 0 10px 30px -18px rgba(21,33,58,.35); }
+.ticket::before, .ticket::after { content: ""; position: absolute; top: 112px; width: 22px; height: 22px; border-radius: 50%; background: var(--paper); }
+.ticket::before { left: -11px; } .ticket::after { right: -11px; }
+.stub { display: flex; justify-content: space-between; font-family: var(--f-mono); font-size: .72rem; letter-spacing: .1em; text-transform: uppercase; color: var(--muted); }
+.mode { color: var(--accent); }
+.num { font-family: var(--f-mono); font-weight: 600; font-variant-numeric: tabular-nums; font-size: clamp(2.6rem, 13vw, 4.2rem);
+  text-align: center; line-height: 1; letter-spacing: -.02em; padding-bottom: 18px; border-bottom: 2px dashed var(--line); min-height: 1.3em; }
+.num.idle { color: var(--line); }
+.slot { display: inline-block; width: .62em; text-align: center; transition: width .3s ease, opacity .3s ease, transform .2s ease; overflow: hidden; vertical-align: bottom; }
+.slot.spin { color: var(--muted); }
+.slot.land { color: var(--ink); transform: scale(1.12); }
+.slot.gone { width: 0; opacity: 0; }
+.num.rolling .slot:not(.spin):not(.land):not(.gone) { color: var(--line); }
+.num.pop { animation: pop .35s ease-out; }
+@keyframes pop { 0% { transform: scale(.92); } 60% { transform: scale(1.06); } 100% { transform: scale(1); } }
+.range { text-align: center; color: var(--muted); font-size: .85rem; margin-top: -6px; }
+
+.score { text-align: center; display: grid; gap: 2px; }
+.score .big { font-family: var(--f-display); font-weight: 800; font-size: clamp(1.3rem, 5.5vw, 1.9rem); line-height: 1.15; font-variant-numeric: tabular-nums; overflow-wrap: anywhere; }
+.score sup { font-size: .55em; }
+.score .word { font-size: .85rem; color: var(--muted); }
+.rarest { text-align: center; font-size: .88rem; }
+.rarest b { color: var(--tc); }
+
+.badges { display: flex; flex-wrap: wrap; gap: 6px; justify-content: center; }
+.chip { display: inline-flex; align-items: center; gap: 6px; padding: 3px 9px; border-radius: 999px; font-size: .8rem; font-weight: 600;
+  background: var(--t-bg); color: var(--tc); border: 1.5px solid var(--tc); }
+.chip b { font-family: var(--f-mono); font-weight: 500; font-size: .72rem; }
+.chip.in { animation: chipin .25s ease-out; }
+@keyframes chipin { from { transform: translateY(6px) scale(.85); opacity: 0; } to { transform: none; opacity: 1; } }
+
+.actions { display: flex; gap: 10px; flex-wrap: wrap; justify-content: center; }
+button { font: inherit; cursor: pointer; border-radius: 10px; padding: 11px 18px; font-weight: 600; border: 1.5px solid var(--ink); background: transparent; color: var(--ink); }
+button.primary { background: var(--accent); border-color: var(--accent); color: var(--accent-ink); font-family: var(--f-display); font-size: 1.1rem; padding: 14px 26px; }
+button.ghost { border-color: var(--line); color: var(--muted); padding: 7px 14px; font-size: .85rem; }
+button:hover { filter: brightness(1.08); }
+button:disabled { opacity: .5; cursor: default; }
+button:focus-visible, input:focus-visible, summary:focus-visible { outline: 3px solid var(--hot); outline-offset: 2px; }
+.next { text-align: center; font-size: .85rem; color: var(--muted); font-family: var(--f-mono); }
+.copied { text-align: center; font-size: .85rem; color: var(--t-uncommon); min-height: 1.2em; }
+textarea#sharebox { width: 100%; font-family: var(--f-mono); font-size: .8rem; background: var(--paper); color: var(--ink); border: 1px solid var(--line); border-radius: 8px; padding: 8px; }
+
+/* stats */
+.stats { display: grid; grid-template-columns: repeat(4, 1fr); border-top: 1px solid var(--line); border-bottom: 1px solid var(--line); }
+.stat { padding: 12px 6px; text-align: center; min-width: 0; }
+.stat + .stat { border-left: 1px solid var(--line); }
+.stat strong { display: block; font-family: var(--f-mono); font-size: 1rem; font-variant-numeric: tabular-nums; overflow-wrap: anywhere; }
+.stat strong sup { font-size: .6em; }
+.stat span { font-size: .72rem; color: var(--muted); text-transform: uppercase; letter-spacing: .07em; }
+@media (max-width: 440px) { .stats { grid-template-columns: repeat(2, 1fr); } .stat:nth-child(3) { border-left: 0; } .stat:nth-child(n+3) { border-top: 1px solid var(--line); } }
+
+/* collection */
+.tools { display: flex; gap: 10px; flex-wrap: wrap; align-items: center; margin-bottom: 10px; }
+.tools input[type=search] { flex: 1 1 200px; min-width: 0; font: inherit; padding: 9px 12px; border-radius: 10px; border: 1.5px solid var(--line); background: var(--card); color: var(--ink); }
+.tools label { font-size: .88rem; display: flex; gap: 6px; align-items: center; color: var(--muted); }
+.legend { display: flex; flex-wrap: wrap; gap: 12px; font-size: .78rem; color: var(--muted); margin-bottom: 12px; }
+.legend i { display: inline-block; width: 9px; height: 9px; border-radius: 50%; background: var(--tc); margin-right: 5px; }
+details.fam { border-top: 1px solid var(--line); }
+details.fam:last-of-type { border-bottom: 1px solid var(--line); }
+details.fam summary { cursor: pointer; padding: 11px 2px; display: flex; justify-content: space-between; gap: 10px; align-items: center; font-weight: 600; list-style: none; }
+details.fam summary::-webkit-details-marker { display: none; }
+details.fam summary::before { content: "+"; font-family: var(--f-mono); color: var(--muted); width: 1em; }
+details.fam[open] summary::before { content: "−"; }
+details.fam summary .nm { flex: 1; }
+.bar { width: 90px; height: 6px; border-radius: 3px; background: var(--line); overflow: hidden; flex: none; }
+.bar i { display: block; height: 100%; background: var(--accent); }
+.fc { font-family: var(--f-mono); font-size: .78rem; color: var(--muted); font-variant-numeric: tabular-nums; min-width: 6.5em; text-align: right; }
+.grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(140px, 1fr)); gap: 6px; padding: 2px 0 14px; }
+.cell { border: 1px solid var(--line); border-radius: 9px; padding: 7px 10px; display: grid; gap: 1px; align-content: start; min-width: 0; }
+.cell .top { display: flex; justify-content: space-between; gap: 6px; align-items: baseline; }
+.cell .nm { font-weight: 600; font-size: .84rem; min-width: 0; overflow-wrap: anywhere; }
+.cell .pt { font-family: var(--f-mono); font-size: .72rem; color: var(--tc); white-space: nowrap; }
+.cell .ds { font-size: .74rem; color: var(--muted); }
+.cell .ct { font-family: var(--f-mono); font-size: .7rem; color: var(--muted); }
+.cell.got { border-color: var(--tc); background: var(--t-bg); }
+.cell.got .ct { color: var(--tc); }
+.cell:not(.got) .nm { color: var(--muted); }
+.note { color: var(--muted); font-size: .85rem; }
+
+/* history */
+.hist { list-style: none; margin: 0; padding: 0; }
+.hist li { display: grid; grid-template-columns: 64px 1fr minmax(0, 45%); gap: 10px; padding: 9px 0; border-bottom: 1px solid var(--line); align-items: baseline; }
+.hist .d { font-family: var(--f-mono); font-size: .8rem; color: var(--muted); }
+.hist .n { font-family: var(--f-mono); font-weight: 600; font-variant-numeric: tabular-nums; min-width: 0; overflow-wrap: anywhere; }
+.hist .n small { font-family: var(--f-body); font-weight: 400; color: var(--muted); }
+.hist .p { font-family: var(--f-mono); font-size: .8rem; text-align: right; min-width: 0; overflow-wrap: anywhere; }
+.empty { color: var(--muted); font-size: .9rem; }
+footer { font-size: .8rem; color: var(--muted); }
+
+/* shop */
+.wearing { text-align: center; font-size: .82rem; color: var(--muted); margin-top: -8px; }
+.wearing .sym { color: var(--hot); font-weight: 700; }
+.todaybest { text-align: center; font-size: .85rem; color: var(--muted); }
+.chip.bonus { --tc: var(--accent); border-style: dashed; }
+.shop-head { display: flex; justify-content: space-between; align-items: flex-end; gap: 12px; flex-wrap: wrap; margin-bottom: 4px; }
+.shop-head h2 { margin: 0; }
+.walletbox { text-align: right; min-width: 0; }
+.walletbox .wl { display: block; font-size: .72rem; color: var(--muted); text-transform: uppercase; letter-spacing: .07em; }
+.walletbox strong { font-family: var(--f-mono); font-size: 1.25rem; font-variant-numeric: tabular-nums; overflow-wrap: anywhere; }
+h3 { font-family: var(--f-display); font-weight: 600; font-size: .92rem; margin: 14px 0 8px; color: var(--muted); }
+h3 .ct { font-weight: 500; font-size: .8rem; }
+.ups { display: grid; border-top: 1px solid var(--line); }
+.up { display: flex; gap: 12px; align-items: center; justify-content: space-between; padding: 11px 0; border-bottom: 1px solid var(--line); flex-wrap: wrap; }
+.up-main { min-width: 0; flex: 1 1 220px; }
+.up-name { font-weight: 600; display: flex; align-items: center; gap: 8px; }
+.pips { display: inline-flex; gap: 3px; }
+.pips i { width: 14px; height: 6px; border-radius: 3px; background: var(--line); }
+.pips i.on { background: var(--accent); }
+.up-now { font-size: .84rem; }
+.up-next { font-size: .8rem; color: var(--muted); }
+button.buy { padding: 8px 12px; font-size: .84rem; border-color: var(--accent); color: var(--accent); white-space: nowrap; }
+button.buy.on { border-color: var(--line); color: var(--muted); }
+.maxed { font-family: var(--f-mono); font-size: .8rem; color: var(--t-uncommon); }
+.charms { display: grid; grid-template-columns: repeat(auto-fill, minmax(165px, 1fr)); gap: 8px; }
+.charm { background: var(--card); border: 1.5px solid var(--line); border-radius: 12px; padding: 12px; display: grid; gap: 4px; align-content: start; min-width: 0; position: relative; }
+.charm .sym { font-size: 1.6rem; line-height: 1; color: var(--hot); font-weight: 700; font-family: var(--f-display); }
+.charm.locked .sym { color: var(--muted); }
+.charm-name { font-weight: 600; }
+.kind { font-size: .66rem; text-transform: uppercase; letter-spacing: .08em; color: var(--muted); font-weight: 600; }
+.kind.luck { color: var(--t-uncommon); }
+.charm-desc { font-size: .8rem; color: var(--muted); }
+.charm button { margin-top: 6px; justify-self: start; }
+.charm.worn { border-color: var(--hot); }
+.worn-tag { position: absolute; top: 10px; right: 10px; font-size: .68rem; text-transform: uppercase; letter-spacing: .08em; color: var(--hot); font-weight: 600; }
+.reset-box { border: 1.5px solid var(--t-legend); border-radius: 12px; padding: 12px 14px; display: grid; gap: 8px; }
+.reset-box p { margin: 0; font-size: .88rem; }
+button.danger { border-color: #C2412D; background: #C2412D; color: #fff; }
+@media (prefers-reduced-motion: reduce) { .num.pop, .chip.in { animation: none; } }
+</style>
+</head>
+<body>
+<style>
+/* additions for the online version */
+.auth { max-width: 380px; margin: 40px auto 0; background: var(--card); border-radius: 14px; padding: 26px 22px; display: grid; gap: 14px; box-shadow: 0 1px 0 var(--line), 0 10px 30px -18px rgba(21,33,58,.35); }
+.auth h1 { text-align: center; }
+.auth p { margin: 0; text-align: center; color: var(--muted); font-size: .9rem; }
+.field { display: grid; gap: 4px; }
+.field label { font-size: .8rem; font-weight: 600; color: var(--muted); }
+.field input { font: inherit; padding: 11px 12px; border-radius: 10px; border: 1.5px solid var(--line); background: var(--paper); color: var(--ink); }
+.auth .err { color: var(--danger); font-size: .88rem; min-height: 1.2em; text-align: center; }
+.linkish { background: none; border: 0; padding: 4px; color: var(--accent); font-weight: 600; text-decoration: underline; }
+.who { display: flex; align-items: center; gap: 10px; font-size: .88rem; color: var(--muted); }
+.who b { color: var(--ink); }
+.who button { padding: 6px 12px; font-size: .8rem; }
+.rollinfo { text-align: center; font-size: .82rem; color: var(--muted); }
+.err-line { text-align: center; color: var(--danger); font-size: .88rem; min-height: 0; }
+
+.play2 { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+@media (max-width: 600px) { .play2 { grid-template-columns: 1fr; } }
+.panel { background: var(--card); border: 1.5px solid var(--line); border-radius: 14px; padding: 16px; display: grid; gap: 12px; align-content: start; min-width: 0; }
+.panel h2 { margin: 0; }
+.panel .sub { font-size: .8rem; color: var(--muted); margin-top: -8px; }
+.msg { font-size: .88rem; min-height: 1.3em; text-align: center; }
+.msg.good { color: var(--t-uncommon); } .msg.bad { color: var(--danger); }
+
+/* wheel */
+.wheelwrap { position: relative; width: min(220px, 100%); aspect-ratio: 1; margin: 0 auto; max-width: 100%; }
+.pointer { position: absolute; top: -6px; left: 50%; transform: translateX(-50%); width: 0; height: 0; border-left: 10px solid transparent; border-right: 10px solid transparent; border-top: 18px solid var(--ink); z-index: 2; }
+.wheel { width: 100%; height: 100%; border-radius: 50%; position: relative; border: 3px solid var(--ink); transition: transform 4s cubic-bezier(.15,.85,.2,1); }
+.wheel span { position: absolute; left: 50%; top: 50%; width: 46%; transform-origin: 0 50%; font-size: .62rem; font-weight: 600; color: var(--wheel-ink); text-align: right; padding-right: 8px; white-space: nowrap; margin-top: -.5em; line-height: 1; }
+.hub { position: absolute; inset: 40%; border-radius: 50%; background: var(--card); border: 3px solid var(--ink); }
+
+/* higher or lower */
+.cards { display: flex; justify-content: center; gap: 12px; align-items: center; }
+.card { width: 74px; height: 104px; border-radius: 10px; border: 2px solid var(--ink); background: var(--paper); display: grid; place-items: center; font-family: var(--f-display); font-weight: 800; font-size: 2rem; }
+.card.ghost { border-style: dashed; color: var(--line); }
+.card.flip { animation: pop .35s ease-out; }
+.pot { text-align: center; font-family: var(--f-mono); font-size: 1.05rem; }
+.pot small { display: block; font-family: var(--f-body); font-size: .78rem; color: var(--muted); }
+.hl-actions { display: flex; gap: 8px; flex-wrap: wrap; justify-content: center; }
+.hl-actions button { padding: 9px 12px; font-size: .88rem; }
+.hl-actions button b { font-family: var(--f-mono); font-weight: 500; font-size: .78rem; }
+
+/* leaderboard */
+.tabs { display: flex; gap: 6px; margin-bottom: 10px; }
+.tabs button { padding: 7px 12px; font-size: .84rem; border-color: var(--line); color: var(--muted); }
+.tabs button[aria-pressed="true"] { border-color: var(--accent); color: var(--accent); }
+.lb { list-style: none; margin: 0; padding: 0; counter-reset: lb; }
+.lb li { display: grid; grid-template-columns: 28px minmax(0, 1fr) minmax(0, 50%); gap: 10px; padding: 8px 0; border-bottom: 1px solid var(--line); align-items: baseline; }
+.lb li.me { background: var(--t-bg); }
+.lb .rk { font-family: var(--f-mono); color: var(--muted); font-size: .85rem; text-align: right; }
+.lb .nm { font-weight: 600; overflow-wrap: anywhere; }
+.lb .nm small { font-weight: 400; color: var(--muted); font-family: var(--f-mono); }
+.hist li { grid-template-columns: 96px minmax(0, 1fr) minmax(0, 40%); }
+.kind.k-luck { color: var(--t-uncommon); } .kind.k-time { color: var(--accent); }
+.lb .sc { font-family: var(--f-mono); font-size: .8rem; text-align: right; overflow-wrap: anywhere; }
+</style>
+
+<div class="wrap" id="loading"><p class="note" style="text-align:center">Loading RNGdle…</p></div>
+
+<div class="wrap" id="authView" hidden>
+  <form class="auth" id="authForm" novalidate>
+    <h1>RNG<span>dle</span></h1>
+    <p id="authLead">Log in to keep rolling.</p>
+    <div class="field"><label for="uName">Username</label><input id="uName" autocomplete="username" maxlength="16" required></div>
+    <div class="field"><label for="uPass">Password</label><input id="uPass" type="password" autocomplete="current-password" maxlength="100" required></div>
+    <div class="err" id="authErr"></div>
+    <button class="primary" id="authBtn" type="submit">Log in</button>
+    <p><span id="authSwapLead">New here?</span> <button type="button" class="linkish" id="authSwap">Make an account</button></p>
+  </form>
+</div>
+
+<div class="wrap" id="gameView" hidden>
+  <header>
+    <h1>RNG<span>dle</span></h1>
+    <div class="who"><span>Playing as <b id="meName"></b></span><button class="ghost" id="logoutBtn">Log out</button></div>
+  </header>
+
+  <section class="ticket" aria-live="polite">
+    <div class="stub"><span id="ticketNo">Ticket</span><span class="mode" id="mode">Roll</span></div>
+    <div class="wearing" id="wearing"></div>
+    <div class="num idle" id="num">???,???</div>
+    <div class="range" id="range"></div>
+    <div class="score" id="score" hidden></div>
+    <div class="rarest" id="rarest" hidden></div>
+    <div class="todaybest" id="luckNote" hidden></div>
+    <div class="badges" id="badges"></div>
+    <div class="actions" id="actions"></div>
+    <div class="rollinfo" id="rollInfo"></div>
+    <div class="err-line" id="rollErr"></div>
+    <div class="copied" id="copied"></div>
+    <textarea id="sharebox" rows="5" readonly hidden></textarea>
+  </section>
+
+  <div class="play2">
+    <section class="panel">
+      <h2>Daily Wheel</h2>
+      <div class="sub">One free spin a day</div>
+      <div class="wheelwrap"><div class="pointer"></div><div class="wheel" id="wheel"></div><div class="hub"></div></div>
+      <button class="primary" id="spinBtn">Spin</button>
+      <div class="msg" id="wheelMsg"></div>
+    </section>
+    <section class="panel">
+      <h2>Higher or Lower</h2>
+      <div class="sub" id="hlTickets"></div>
+      <div class="cards"><div class="card" id="hlCard">?</div><div class="card ghost" id="hlNext">?</div></div>
+      <div class="pot" id="hlPot"></div>
+      <div class="hl-actions" id="hlActions"></div>
+      <div class="msg" id="hlMsg"></div>
+    </section>
+  </div>
+
+  <section>
+    <div class="shop-head"><h2>Shop</h2><div class="walletbox"><span class="wl">Points to spend</span><strong id="wallet">0</strong></div></div>
+    <div class="copied" id="shopMsg" style="text-align:left"></div>
+    <h3>Upgrades</h3>
+    <div class="ups" id="upgrades"></div>
+    <h3>Charms <span class="ct">wear one at a time</span></h3>
+    <div class="charms" id="charms"></div>
+  </section>
+
+  <section>
+    <h2>Leaderboard</h2>
+    <div class="tabs"><button id="lbBest" aria-pressed="true">Best roll</button><button id="lbEarned" aria-pressed="false">Total points</button></div>
+    <ol class="lb" id="lb"></ol>
+  </section>
+
+  <section>
+    <h2>Your stats</h2>
+    <div class="stats">
+      <div class="stat"><strong id="sStreak">0</strong><span>Day streak</span></div>
+      <div class="stat"><strong id="sRolls">0</strong><span>Rolls</span></div>
+      <div class="stat"><strong id="sBest">0</strong><span>Best score</span></div>
+      <div class="stat"><strong id="sBadges">0</strong><span>Badges</span></div>
+    </div>
+  </section>
+
+  <section>
+    <h2>Badge collection <span class="ct" id="colCount"></span></h2>
+    <div class="tools">
+      <input type="search" id="q" placeholder="Search badges, like prime or 777" aria-label="Search badges">
+      <label><input type="checkbox" id="onlyGot"> Earned only</label>
+    </div>
+    <div class="legend" id="legend"></div>
+    <div id="fams"></div>
+  </section>
+
+  <section>
+    <h2>Recent rolls</h2>
+    <ul class="hist" id="hist"></ul>
+  </section>
+
+  <section class="reset">
+    <button class="ghost" id="resetBtn">Reset my progress</button>
+    <div class="reset-box" id="resetBox" hidden>
+      <p>This deletes all your points, upgrades, charms, badges and rolls. Your account stays. It can't be undone.</p>
+      <div class="actions" style="justify-content:flex-start"><button class="danger" id="resetYes">Reset everything</button><button id="resetNo">Cancel</button></div>
+    </div>
+    <div class="copied" id="resetMsg" style="text-align:left"></div>
+  </section>
+
+  <footer>Each roll has six slots that roll left to right. A leading slot has a 1 in 11 chance to vanish, and if it does the next one can vanish too. The last slot always lands a digit. Every badge multiplies your score by (1 ÷ its chance) to the power of 0.75, so rare badges count for a lot. Rolls happen on the server, so nobody can fake one.</footer>
+</div>
+
+<script src="/badges.js"></script>
+<script>
+(() => {
+const $ = id => document.getElementById(id);
+const B = makeBadges();
+let DEFS = [], byId = {}, CAT = null, S = null, clockSkew = 0;
+let busy = false, skip = false, practice = null, lbTab = "best", lbData = null, wheelTurn = 0, lastShown = null;
+const reduce = matchMedia("(prefers-reduced-motion: reduce)").matches;
+
+const TIERS = [
+  { max: 1e-4, name: "Legendary", v: "--t-legend",   e: "🟨" },
+  { max: 1e-3, name: "Epic",      v: "--t-epic",     e: "🟪" },
+  { max: 1e-2, name: "Rare",      v: "--t-rare",     e: "🟦" },
+  { max: 1e-1, name: "Uncommon",  v: "--t-uncommon", e: "🟩" },
+  { max: Infinity, name: "Common", v: "--t-common",  e: "⬜" },
+];
+const tierOf = d => TIERS.find(t => d.p <= t.max);
+
+/* ---------- formatting ---------- */
+const fmt = n => n.toLocaleString("en-US");
+const fmtMult = m => m < 10 ? "×" + (+m.toFixed(2)) : m < 100 ? "×" + (+m.toFixed(1)) : "×" + fmt(Math.round(m));
+const NAMES = ["", "thousand", "million", "billion", "trillion", "quadrillion", "quintillion", "sextillion", "septillion", "octillion", "nonillion", "decillion", "undecillion", "duodecillion", "tredecillion", "quattuordecillion", "quindecillion", "sexdecillion", "septendecillion", "octodecillion", "novemdecillion", "vigintillion"];
+// under a million: exact. A million and up: first 3 digits, then zeros
+function fullNum(lg) {
+  if (lg < 6) return fmt(Math.round(Math.pow(10, lg)));
+  const e = Math.floor(lg), m = Math.pow(10, lg - e);
+  return (BigInt(Math.round(m * 100)) * 10n ** BigInt(e - 2)).toLocaleString("en-US");
+}
+function wordNum(lg) {
+  if (lg < 6) return fullNum(lg);
+  const g = Math.floor(Math.floor(lg + 1e-9) / 3);
+  return g < NAMES.length ? `${(+Math.pow(10, lg - 3 * g).toPrecision(3))} ${NAMES[g]}` : fullNum(lg);
+}
+const fmtPts = x => x < 1e6 ? fmt(Math.floor(x)) : fullNum(Math.log10(x));
+const fmtS = str => str.replace(/\B(?=(\d{3})+(?!\d))/g, ",");
+const pad = x => String(x).padStart(2, "0");
+const todayKey = () => { const d = new Date(); return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`; };
+const now = () => Date.now() + clockSkew;
+function fmtWait(ms) {
+  const s = Math.max(0, Math.ceil(ms / 1000)), h = Math.floor(s / 3600), m = Math.floor(s % 3600 / 60);
+  return h ? `${h}:${pad(m)}:${pad(s % 60)}` : `${m}:${pad(s % 60)}`;
+}
+const esc = t => String(t).replace(/[&<>"]/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
+
+/* ---------- server calls ---------- */
+async function api(path, body) {
+  const opts = body === undefined ? {} : { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ today: todayKey(), ...body }) };
+  const url = body === undefined ? `${path}${path.includes("?") ? "&" : "?"}today=${todayKey()}` : path;
+  let res;
+  try { res = await fetch(url, { credentials: "same-origin", ...opts }); }
+  catch (e) { throw new Error("Can't reach the server. Check your internet and try again."); }
+  const data = await res.json().catch(() => ({}));
+  if (res.status === 401) { showAuth(); throw new Error(data.error || "Please log in."); }
+  if (data.state) setState(data.state);
+  if (!res.ok) throw new Error(data.error || "Something went wrong.");
+  return data;
+}
+function setState(st) { S = st; clockSkew = st.now - Date.now(); }
+
+/* ---------- login ---------- */
+let signup = false;
+function showAuth() { $("loading").hidden = true; $("gameView").hidden = true; $("authView").hidden = false; $("uName").focus(); }
+function setAuthMode(isSignup) {
+  signup = isSignup;
+  $("authLead").textContent = isSignup ? "Pick a username your friends will see." : "Log in to keep rolling.";
+  $("authBtn").textContent = isSignup ? "Make account" : "Log in";
+  $("authSwapLead").textContent = isSignup ? "Have an account?" : "New here?";
+  $("authSwap").textContent = isSignup ? "Log in" : "Make an account";
+  $("uPass").autocomplete = isSignup ? "new-password" : "current-password";
+  $("authErr").textContent = "";
+}
+$("authSwap").onclick = () => setAuthMode(!signup);
+$("authForm").onsubmit = async e => {
+  e.preventDefault();
+  $("authBtn").disabled = true; $("authErr").textContent = "";
+  try {
+    await api(signup ? "/api/signup" : "/api/login", { name: $("uName").value.trim(), password: $("uPass").value });
+    $("uPass").value = "";
+    await enterGame();
+  } catch (err) { $("authErr").textContent = err.message; }
+  $("authBtn").disabled = false;
+};
+$("logoutBtn").onclick = async () => { try { await api("/api/logout", {}); } catch (e) {} S = null; setAuthMode(false); showAuth(); };
+
+async function enterGame() {
+  await api("/api/me");
+  $("loading").hidden = true; $("authView").hidden = true; $("gameView").hidden = false;
+  $("meName").textContent = S.name;
+  practice = null; lastShown = S.history[0] || null;
+  renderAll(); loadLeaderboard();
+}
+
+/* ---------- ticket ---------- */
+const chip = (id, anim) => { const d = byId[id], t = tierOf(d); return `<span class="chip${anim ? " in" : ""}" style="--tc:var(${t.v})" title="${esc(d.desc)}. 1 in ${fmt(Math.round(1 / d.p))} numbers">${esc(d.name)} <b>${fmtMult(d.mult)}</b></span>`; };
+const bchip = (b, anim) => `<span class="chip bonus${anim ? " in" : ""}">${esc(b[0])} <b>${fmtMult(b[1])}</b></span>`;
+const localEval = s => { const ids = B.evaluate(s).filter(id => byId[id]).sort((a, b) => byId[b].p - byId[a].p); return { s, badges: ids, lg: ids.reduce((a, id) => a + byId[id].lg, 0) }; };
+
+function paintScore(lg) {
+  const el = $("score"); el.hidden = false;
+  el.innerHTML = `<div class="big">${fullNum(lg)}</div><div class="word">${lg >= 6 ? wordNum(lg) + " points" : "points"}${practice ? " · practice, not saved" : ""}</div>`;
+}
+function paintRarest(badges) {
+  if (!badges.length) { $("rarest").hidden = true; return; }
+  const d = byId[badges[badges.length - 1]], t = tierOf(d);
+  $("rarest").hidden = false;
+  $("rarest").innerHTML = `Rarest: <b style="--tc:var(${t.v})">${esc(d.name)}</b>, 1 in ${fmt(Math.round(1 / d.p))}`;
+}
+function setNote(t) { $("luckNote").hidden = !t; $("luckNote").textContent = t || ""; }
+function showResult(s, badges, bonus, lg, note) {
+  $("num").className = "num"; $("num").textContent = fmtS(s);
+  $("range").hidden = true;
+  $("badges").innerHTML = badges.map(id => chip(id)).join("") + bonus.map(b => bchip(b)).join("");
+  paintScore(lg); paintRarest(badges); setNote(note);
+}
+function setActions(html, handlers) {
+  $("actions").innerHTML = html;
+  Object.entries(handlers).forEach(([id, fn]) => { const b = $(id); if (b) b.onclick = fn; });
+}
+
+function renderTicket() {
+  const c = S.wear && CAT.charms.find(x => x.id === S.wear);
+  $("wearing").innerHTML = c ? `<span class="sym">${c.sym}</span> Wearing ${esc(c.name)}` : "No charm on";
+  $("ticketNo").textContent = `Roll #${fmt(S.totalRolls + (practice ? 0 : 0))}`;
+  if (practice) {
+    $("mode").textContent = "Practice roll";
+    showResult(practice.s, practice.badges, [], practice.lg, "");
+    setActions(`<button class="primary" id="pracBtn">Practice again</button><button id="backBtn">Back</button>`, { pracBtn: doPractice, backBtn: () => { practice = null; renderTicket(); } });
+    $("rollInfo").textContent = "Practice rolls use normal odds and don't earn points.";
+    return;
+  }
+  $("mode").textContent = `${Math.floor(S.charges)} roll${S.charges === 1 ? "" : "s"} ready`;
+  if (lastShown) {
+    const ev = localEval(lastShown.s);
+    showResult(lastShown.s, ev.badges, lastShown.bonus || [], lastShown.lg, lastShown.notes ? lastShown.notes.join(". ") : "");
+  } else {
+    $("num").className = "num idle"; $("num").textContent = "???,???";
+    $("range").hidden = false; $("badges").innerHTML = ""; $("score").hidden = true; $("rarest").hidden = true; setNote("");
+  }
+  $("range").textContent = `Six digits roll one at a time, and leading digits can vanish. ${fmt(DEFS.length)} badges to find.`;
+  const ready = S.charges >= 1;
+  const rollLabel = ready ? `Roll${S.charges > 1 ? ` (${Math.floor(S.charges)} ready)` : ""}` : `Next roll in <span id="rollWait">${fmtWait(S.nextChargeAt - now())}</span>`;
+  setActions(`<button class="primary" id="rollBtn" ${ready ? "" : "disabled"}>${rollLabel}</button>${lastShown ? `<button id="shareBtn">Copy result</button>` : ""}<button id="pracBtn">Practice</button>`,
+    { rollBtn: doRoll, shareBtn: share, pracBtn: doPractice });
+  const mins = +(S.waitMs / 60000).toFixed(1);
+  $("rollInfo").textContent = `A new roll every ${mins} minute${mins === 1 ? "" : "s"}. You can save up ${S.cap} roll${S.cap === 1 ? "" : "s"}.${ready && S.charges < S.cap && S.nextChargeAt ? ` Next one in ${fmtWait(S.nextChargeAt - now())}.` : ""}`;
+}
+
+/* the roll animation: six slots roll one digit at a time, left to right */
+function play(s, badges, bonus, lg, done) {
+  busy = true; skip = false;
+  const num = $("num"), vanished = 6 - s.length;
+  $("range").hidden = true; $("badges").innerHTML = ""; $("score").hidden = true; $("rarest").hidden = true; setNote("");
+  $("copied").textContent = ""; $("sharebox").hidden = true; $("rollErr").textContent = "";
+  setActions(`<button class="ghost" id="skipBtn">Skip</button>`, { skipBtn: () => { skip = true; } });
+  let ended = false;
+  const end = () => { if (ended) return; ended = true; num.className = "num"; num.textContent = fmtS(s); void num.offsetWidth; num.classList.add("pop"); reveal(badges, bonus, lg, done); };
+  if (reduce) { end(); return; }
+  num.className = "num rolling";
+  num.innerHTML = Array.from({ length: 6 }, (_, i) => `<span class="slot" id="sl${i}">?</span>`).join("");
+  let i = 0;
+  const next = () => {
+    if (skip || i >= 6) { setTimeout(end, skip ? 0 : 250); return; }
+    const el = $("sl" + i), canVanish = i <= vanished && i < 5, slot = i;
+    el.classList.add("spin");
+    const t0 = performance.now(), dur = slot === 0 ? 1000 : 700;
+    const tick = () => {
+      if (skip) { end(); return; }
+      const t = performance.now() - t0;
+      if (t < dur) { const x = Math.floor(Math.random() * (canVanish ? 11 : 10)); el.textContent = x === 10 ? "–" : x; setTimeout(tick, 45 + t / 10); }
+      else {
+        el.classList.remove("spin");
+        if (slot < vanished) { el.textContent = "–"; el.classList.add("gone"); } else { el.textContent = s[slot - vanished]; el.classList.add("land"); }
+        i++; setTimeout(next, 260);
+      }
+    };
+    tick();
+  };
+  next();
+}
+function reveal(badges, bonus, total, done) {
+  const box = $("badges"), steps = [...badges.map(id => ["b", id]), ...bonus.map(b => ["x", b])];
+  let i = 0, lg = 0;
+  paintScore(0);
+  const gap = Math.max(45, Math.min(170, 3200 / Math.max(1, steps.length)));
+  const finish = () => { paintRarest(badges); busy = false; done(); };
+  const step = () => {
+    if (skip) { box.innerHTML = badges.map(id => chip(id)).join("") + bonus.map(b => bchip(b)).join(""); paintScore(total); finish(); return; }
+    if (i >= steps.length) { finish(); return; }
+    const [kind, v] = steps[i++];
+    if (kind === "b") { lg += byId[v].lg; box.insertAdjacentHTML("beforeend", chip(v, true)); }
+    else { lg += Math.log10(v[1]); box.insertAdjacentHTML("beforeend", bchip(v, true)); }
+    paintScore(lg);
+    setTimeout(step, kind === "x" ? 450 : gap);
+  };
+  setTimeout(step, 350);
+}
+
+async function doRoll() {
+  if (busy) return;
+  busy = true; $("rollErr").textContent = "";
+  let data;
+  try { data = await api("/api/roll", {}); }
+  catch (e) { busy = false; $("rollErr").textContent = e.message; renderAll(); return; }
+  practice = null;
+  const r = data.roll;
+  lastShown = { s: r.s, lg: r.lg, bonus: r.bonus, notes: r.notes };
+  play(r.s, r.badges, r.bonus, r.lg, () => { renderAll(); setNote(r.notes.join(". ")); loadLeaderboard(); });
+}
+function doPractice() {
+  if (busy) return;
+  let s = "", lead = true;
+  for (let i = 0; i < 6; i++) { if (lead && i < 5) { if (Math.floor(Math.random() * 11) === 0) continue; s += Math.floor(Math.random() * 10); lead = false; } else s += Math.floor(Math.random() * 10); }
+  practice = localEval(s);
+  $("mode").textContent = "Practice roll";
+  play(practice.s, practice.badges, [], practice.lg, renderTicket);
+}
+function share() {
+  if (!lastShown) return;
+  const ev = localEval(lastShown.s);
+  const counts = TIERS.map(t => ev.badges.filter(id => tierOf(byId[id]) === t).length);
+  const sq = TIERS.map((t, i) => counts[i] ? t.e + counts[i] : "").filter(Boolean).join(" ");
+  const rare = ev.badges.length ? byId[ev.badges[ev.badges.length - 1]].name : "none";
+  const text = `RNGdle\n🎲 ${fmtS(lastShown.s)}\n✖️ ${fullNum(lastShown.lg)} pts\n${sq}\nRarest: ${rare}${S.streak > 1 ? `\n🔥 ${S.streak} day streak` : ""}\nPlay: ${location.origin}`;
+  const box = $("sharebox");
+  const fallback = () => { box.value = text; box.hidden = false; box.focus(); box.select(); $("copied").textContent = "Select and copy the text below."; };
+  try { navigator.clipboard.writeText(text).then(() => { $("copied").textContent = "Copied. Paste it to your friends."; box.hidden = true; }, fallback); }
+  catch (e) { fallback(); }
+}
+
+/* ---------- daily wheel ---------- */
+const WHEEL_COLORS = ["--w1", "--w2", "--w1", "--w3", "--w1", "--w2", "--w4", "--w3"];
+function buildWheel() {
+  const n = CAT.wheel.length, seg = 360 / n;
+  const stops = CAT.wheel.map((_, i) => `var(${WHEEL_COLORS[i % WHEEL_COLORS.length]}) ${i * seg}deg ${(i + 1) * seg}deg`).join(", ");
+  const w = $("wheel");
+  w.style.background = `conic-gradient(${stops})`;
+  w.innerHTML = CAT.wheel.map((label, i) => `<span style="transform: rotate(${i * seg + seg / 2 - 90}deg)">${esc(label)}</span>`).join("");
+}
+function renderWheel() {
+  const ready = now() >= S.wheelReadyAt;
+  const b = $("spinBtn");
+  b.disabled = !ready || busy;
+  b.innerHTML = ready ? "Spin" : `Next spin in <span id="wheelWait">${fmtWait(S.wheelReadyAt - now())}</span>`;
+}
+$("spinBtn").onclick = async () => {
+  if (busy) return;
+  busy = true; $("spinBtn").disabled = true; $("wheelMsg").className = "msg"; $("wheelMsg").textContent = "";
+  let data;
+  try { data = await api("/api/wheel", {}); }
+  catch (e) { busy = false; $("wheelMsg").className = "msg bad"; $("wheelMsg").textContent = e.message; renderWheel(); return; }
+  const n = CAT.wheel.length, seg = 360 / n, idx = data.spin.index;
+  const target = 360 - (idx * seg + seg / 2);
+  wheelTurn += 360 * 5 + ((target - (wheelTurn % 360)) + 360) % 360;
+  $("wheel").style.transform = `rotate(${wheelTurn}deg)`;
+  setTimeout(() => {
+    busy = false;
+    $("wheelMsg").className = "msg good"; $("wheelMsg").textContent = `You won ${data.spin.label}!`;
+    renderAll();
+  }, reduce ? 50 : 4100);
+};
+
+/* ---------- higher or lower ---------- */
+const RANK = c => ({ 1: "A", 11: "J", 12: "Q", 13: "K" })[c] || String(c);
+function renderHilo(flip) {
+  const g = S.hilo;
+  $("hlTickets").innerHTML = `Tickets: ${S.tickets} of ${S.ticketCap}${S.nextTicketAt ? ` · next in <span id="ticketWait">${fmtWait(S.nextTicketAt - now())}</span>` : ""}`;
+  if (g) {
+    $("hlCard").textContent = RANK(g.card); if (flip) { $("hlCard").classList.remove("flip"); void $("hlCard").offsetWidth; $("hlCard").classList.add("flip"); }
+    $("hlNext").textContent = "?";
+    $("hlPot").innerHTML = `${fmt(g.pot)} points in the pot<small>Round ${g.round} of ${CAT.hilo.maxRounds}. Is the next card higher or lower? Ties keep going.</small>`;
+    const hi = g.odds.hi, lo = g.odds.lo;
+    $("hlActions").innerHTML = `<button id="hlHi" ${hi ? "" : "disabled"}>Higher <b>${hi ? fmtMult(hi) : "—"}</b></button><button id="hlLo" ${lo ? "" : "disabled"}>Lower <b>${lo ? fmtMult(lo) : "—"}</b></button>${g.round > 0 ? `<button class="primary" id="hlCash">Cash out ${fmt(g.pot)}</button>` : ""}`;
+    $("hlHi").onclick = () => hiloGuess("hi"); $("hlLo").onclick = () => hiloGuess("lo");
+    if ($("hlCash")) $("hlCash").onclick = hiloCash;
+  } else {
+    $("hlCard").textContent = "?"; $("hlNext").textContent = "?";
+    $("hlPot").innerHTML = `Start with ${fmt(CAT.hilo.start)} points<small>Guess right to grow the pot. Guess wrong and it's gone.</small>`;
+    $("hlActions").innerHTML = `<button class="primary" id="hlStart" ${S.tickets >= 1 ? "" : "disabled"}>Play (uses 1 ticket)</button>`;
+    $("hlStart").onclick = hiloStart;
+  }
+}
+function hlMsg(t, kind) { $("hlMsg").className = "msg" + (kind ? " " + kind : ""); $("hlMsg").textContent = t; }
+async function hiloStart() { try { await api("/api/hilo/start", {}); hlMsg(""); renderHilo(true); renderStatsAndShop(); } catch (e) { hlMsg(e.message, "bad"); renderHilo(); } }
+async function hiloGuess(dir) {
+  $("hlActions").querySelectorAll("button").forEach(b => b.disabled = true);
+  let data;
+  try { data = await api("/api/hilo/guess", { dir }); } catch (e) { hlMsg(e.message, "bad"); renderHilo(); return; }
+  const g = data.guess;
+  $("hlNext").textContent = RANK(g.card); $("hlNext").classList.remove("ghost");
+  if (g.result === "lose") { hlMsg(`It was ${RANK(g.card)}. You lost ${fmt(g.lost)} points.`, "bad"); }
+  else if (g.result === "tie") { hlMsg(`It was ${RANK(g.card)} too. Tie, guess again.`); }
+  else if (g.autoCash) { hlMsg(`It was ${RANK(g.card)}! Ten in a row, ${fmt(g.autoCash)} points banked.`, "good"); }
+  else { hlMsg(`It was ${RANK(g.card)}! Right.`, "good"); }
+  setTimeout(() => { $("hlNext").classList.add("ghost"); renderHilo(true); renderStatsAndShop(); }, 900);
+}
+async function hiloCash() {
+  try { const d = await api("/api/hilo/cashout", {}); hlMsg(`Banked ${fmt(d.won)} points.`, "good"); } catch (e) { hlMsg(e.message, "bad"); }
+  renderHilo(); renderStatsAndShop();
+}
+
+/* ---------- shop ---------- */
+async function shopAction(path, body) {
+  if (busy) return;
+  try { const d = await api(path, body); $("shopMsg").textContent = d.message || ""; }
+  catch (e) { $("shopMsg").textContent = e.message; }
+  renderAll();
+}
+function renderShop() {
+  $("wallet").textContent = fmtPts(S.wallet);
+  $("upgrades").innerHTML = CAT.upgrades.map(u => {
+    const L = S.owned[u.id] || 0, maxed = L >= u.prices.length, price = u.prices[L];
+    const pips = u.prices.map((_, i) => `<i class="${i < L ? "on" : ""}"></i>`).join("");
+    return `<div class="up"><div class="up-main"><div class="up-name">${esc(u.name)} <span class="pips" aria-label="Level ${L} of ${u.prices.length}">${pips}</span></div>
+      <div class="up-now">Now: ${esc(u.levels[L])}</div>${maxed ? "" : `<div class="up-next">Next: ${esc(u.levels[L + 1])}</div>`}</div>
+      ${maxed ? `<span class="maxed">Maxed</span>` : `<button class="buy" data-up="${u.id}" ${S.wallet < price ? "disabled" : ""}>Buy for ${fmtPts(price)}</button>`}</div>`;
+  }).join("");
+  $("charms").innerHTML = CAT.charms.map(c => {
+    const own = S.charms.includes(c.id), on = S.wear === c.id;
+    const btn = !own ? `<button class="buy" data-buy="${c.id}" ${S.wallet < c.price ? "disabled" : ""}>Buy for ${fmtPts(c.price)}</button>`
+      : `<button class="buy ${on ? "on" : ""}" data-wear="${c.id}">${on ? "Take off" : "Wear"}</button>`;
+    return `<div class="charm${on ? " worn" : ""}${own ? "" : " locked"}"><div class="sym">${c.sym}</div><div class="kind k-${c.kind.toLowerCase()}">${c.kind}</div><div class="charm-name">${esc(c.name)}</div><div class="charm-desc">${esc(c.desc)}</div>${on ? `<div class="worn-tag">Wearing</div>` : ""}${btn}</div>`;
+  }).join("");
+  document.querySelectorAll("[data-up]").forEach(b => b.onclick = () => shopAction("/api/buy", { kind: "upgrade", id: b.dataset.up }));
+  document.querySelectorAll("[data-buy]").forEach(b => b.onclick = () => shopAction("/api/buy", { kind: "charm", id: b.dataset.buy }));
+  document.querySelectorAll("[data-wear]").forEach(b => b.onclick = () => shopAction("/api/wear", { id: S.wear === b.dataset.wear ? null : b.dataset.wear }));
+}
+
+/* ---------- leaderboard ---------- */
+async function loadLeaderboard() {
+  try { const r = await fetch("/api/leaderboard", { credentials: "same-origin" }); if (r.ok) { lbData = await r.json(); renderLeaderboard(); } } catch (e) {}
+}
+function renderLeaderboard() {
+  $("lbBest").setAttribute("aria-pressed", lbTab === "best"); $("lbEarned").setAttribute("aria-pressed", lbTab === "earned");
+  if (!lbData) { $("lb").innerHTML = `<li class="empty" style="display:block">Loading…</li>`; return; }
+  const rows = lbData[lbTab];
+  $("lb").innerHTML = rows.length ? rows.map((r, i) => {
+    const me = S && r.name.toLowerCase() === S.name.toLowerCase();
+    const score = lbTab === "best" ? fullNum(r.best.lg) : fmtPts(r.earned);
+    const sub = lbTab === "best" ? `rolled ${fmtS(r.best.s)}` : `${fmt(r.rolls)} rolls`;
+    return `<li class="${me ? "me" : ""}"><span class="rk">${i + 1}</span><span class="nm">${esc(r.name)} <small>${sub}</small></span><span class="sc">${score}</span></li>`;
+  }).join("") : `<li class="empty" style="display:block">No rolls yet. Be the first.</li>`;
+}
+$("lbBest").onclick = () => { lbTab = "best"; renderLeaderboard(); };
+$("lbEarned").onclick = () => { lbTab = "earned"; renderLeaderboard(); };
+
+/* ---------- stats, collection, history ---------- */
+function renderStatsAndShop() {
+  $("sStreak").textContent = S.streak;
+  $("sRolls").textContent = fmt(S.totalRolls);
+  $("sBest").textContent = S.best ? fullNum(S.best.lg) : "0";
+  $("sBadges").textContent = Object.keys(S.badgeCounts).length;
+  renderShop();
+}
+function cellHTML(d) {
+  const t = tierOf(d), c = S.badgeCounts[d.id] || 0;
+  return `<div class="cell${c ? " got" : ""}" style="--tc:var(${t.v})"><div class="top"><span class="nm">${esc(d.name)}</span><span class="pt">${fmtMult(d.mult)}</span></div><div class="ds">${esc(d.desc)}</div><div class="ct">${c ? `Earned ×${c}` : "Not yet"}</div></div>`;
+}
+function renderCollection() {
+  const q = $("q").value.trim().toLowerCase(), only = $("onlyGot").checked, earned = S.badgeCounts;
+  $("colCount").textContent = `${Object.keys(earned).length} / ${DEFS.length}`;
+  $("legend").innerHTML = TIERS.map(t => `<span style="--tc:var(${t.v})"><i></i>${t.name}</span>`).join("");
+  const fams = $("fams"), sortRare = (a, b) => a.p - b.p;
+  if (q || only) {
+    const hits = DEFS.filter(d => (!only || earned[d.id]) && (!q || (d.name + " " + d.desc).toLowerCase().includes(q))).sort(sortRare);
+    fams.innerHTML = hits.length ? `<p class="note">${hits.length} badge${hits.length === 1 ? "" : "s"}</p><div class="grid">${hits.map(cellHTML).join("")}</div>` : `<p class="note">No badges match. Try another word.</p>`;
+    return;
+  }
+  const open = new Set([...fams.querySelectorAll("details[open]")].map(x => x.dataset.f));
+  fams.innerHTML = B.FAMS.map(([f, label]) => {
+    const list = DEFS.filter(d => d.fam === f), got = list.filter(d => earned[d.id]).length;
+    return `<details class="fam" data-f="${f}"${open.has(f) ? " open" : ""}><summary><span class="nm">${label}</span><span class="bar"><i style="width:${(100 * got / list.length).toFixed(1)}%"></i></span><span class="fc">${got} / ${list.length}</span></summary><div class="grid"></div></details>`;
+  }).join("");
+  fams.querySelectorAll("details").forEach(el => {
+    const fill = () => { const g = el.querySelector(".grid"); if (el.open && !g.childElementCount) g.innerHTML = DEFS.filter(d => d.fam === el.dataset.f).sort(sortRare).map(cellHTML).join(""); };
+    el.addEventListener("toggle", fill); fill();
+  });
+}
+function renderHistory() {
+  $("hist").innerHTML = S.history.length ? S.history.map(h => {
+    const d = new Date(h.at), label = d.toLocaleDateString("en-US", { month: "short", day: "numeric" }) + " " + d.toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit" });
+    return `<li><span class="d">${label}</span><span class="n">${fmtS(h.s)} <small>${localEval(h.s).badges.length} badges</small></span><span class="p">${fullNum(h.lg)}</span></li>`;
+  }).join("") : `<li class="empty" style="display:block">Your rolls show up here.</li>`;
+}
+$("q").addEventListener("input", () => { clearTimeout(window.__qt); window.__qt = setTimeout(renderCollection, 150); });
+$("onlyGot").addEventListener("change", renderCollection);
+
+/* ---------- reset ---------- */
+$("resetBtn").onclick = () => { $("resetBox").hidden = false; $("resetBtn").hidden = true; $("resetMsg").textContent = ""; };
+$("resetNo").onclick = () => { $("resetBox").hidden = true; $("resetBtn").hidden = false; };
+$("resetYes").onclick = async () => {
+  if (busy) return;
+  try { await api("/api/reset", {}); $("resetMsg").textContent = "Progress reset. Fresh start."; lastShown = null; practice = null; }
+  catch (e) { $("resetMsg").textContent = e.message; }
+  $("resetBox").hidden = true; $("resetBtn").hidden = false;
+  renderAll(); loadLeaderboard(); window.scrollTo({ top: 0, behavior: "smooth" });
+};
+
+function renderAll() { if (!S) return; if (!busy) renderTicket(); renderWheel(); renderHilo(); renderStatsAndShop(); renderCollection(); renderHistory(); renderLeaderboard(); }
+
+/* ---------- timers ---------- */
+let refreshing = false;
+setInterval(async () => {
+  if (!S || $("gameView").hidden) return;
+  const t = now();
+  if ($("rollWait") && S.nextChargeAt) $("rollWait").textContent = fmtWait(S.nextChargeAt - t);
+  if ($("wheelWait")) $("wheelWait").textContent = fmtWait(S.wheelReadyAt - t);
+  if ($("ticketWait") && S.nextTicketAt) $("ticketWait").textContent = fmtWait(S.nextTicketAt - t);
+  const due = (S.nextChargeAt && t >= S.nextChargeAt) || (S.nextTicketAt && t >= S.nextTicketAt) || (t >= S.wheelReadyAt && $("spinBtn").disabled && !busy);
+  if (due && !busy && !refreshing) { refreshing = true; try { await api("/api/me"); renderAll(); } catch (e) {} refreshing = false; }
+}, 1000);
+setInterval(() => { if (S && !$("gameView").hidden && !busy) loadLeaderboard(); }, 60000);
+
+/* ---------- start ---------- */
+(async () => {
+  try {
+    const [cat, probs] = await Promise.all([fetch("/api/catalog").then(r => r.json()), fetch("/probs.json").then(r => r.json())]);
+    CAT = cat;
+    DEFS = B.defs.map((d, i) => { const p = probs[i], mult = Math.pow(1 / p, 0.75); return { ...d, p, mult, lg: Math.log10(mult) }; });
+    byId = Object.fromEntries(DEFS.map(d => [d.id, d]));
+    buildWheel();
+  } catch (e) { $("loading").innerHTML = `<p class="note" style="text-align:center">Can't reach the server. Refresh to try again.</p>`; return; }
+  try { await enterGame(); } catch (e) { if ($("authView").hidden) showAuth(); }
+})();
+})();
+</script>
+</body>
+</html>
