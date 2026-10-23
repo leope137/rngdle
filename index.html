@@ -254,6 +254,7 @@ button.danger { border-color: #C2412D; background: #C2412D; color: #fff; }
 .vault .note { margin: 0; }
 .vault .ups { margin-top: 6px; }
 .vault button.buy { border-color: var(--hot); color: var(--ink); }
+.exch { display: flex; gap: 12px; align-items: center; justify-content: space-between; flex-wrap: wrap; padding: 12px; margin-top: 8px; border-radius: 10px; background: var(--t-bg); }
 .toasts { position: fixed; left: 50%; transform: translateX(-50%); bottom: calc(16px + env(safe-area-inset-bottom, 0px)); display: grid; gap: 8px; z-index: 20; width: min(420px, calc(100% - 32px)); pointer-events: none; }
 .toast { background: var(--ink); color: var(--paper); border-radius: 12px; padding: 10px 14px; font-size: .88rem; box-shadow: 0 10px 30px -12px rgba(0,0,0,.5); animation: chipin .25s ease-out; }
 .toast b { color: var(--hot); }
@@ -920,12 +921,16 @@ function renderShop() {
   if (!S.vaultOpen) {
     $("vault").innerHTML = `<h3>🔒 The Vault <span class="ct">${maxed} / ${CAT.upgrades.length} upgrades maxed</span></h3><p class="note">Max every upgrade above to open the Vault, a second shop paid in gold. It has upgrades with up to 100 levels each. You have <span class="gold">${fmtPts(S.gold)} gold</span> saved for it.</p>`;
   } else {
-    $("vault").innerHTML = `<h3>The Vault <span class="gold">${fmtPts(S.gold)} gold</span></h3><p class="note">Gold comes from rare badges and level-ups. These upgrades go very deep.</p><div class="ups">${CAT.vault.map(v => {
+    const ex = S.exch, canEx = S.wallet >= ex.cost;
+    $("vault").innerHTML = `<h3>The Vault <span class="gold">${fmtPts(S.gold)} gold</span></h3><p class="note">Gold comes from rare badges, level-ups and the Gold Exchange. These upgrades go very deep.</p>
+    <div class="exch"><div class="up-main"><div class="up-name">Gold Exchange <span class="xptext">${fmt(ex.count)} trades so far</span></div><div class="up-now">Next trade: ${fmtPts(ex.cost)} points for ${fmt(ex.gold)} gold</div><div class="up-next">Each trade costs about 3× more points and gives 5 more gold.</div></div><div class="charm-btns"><button class="buy" data-exch="exchange" ${canEx ? "" : "disabled"}>Trade once</button><button class="buy" data-exch="exchangemax" ${canEx ? "" : "disabled"}>Trade max</button></div></div>
+    <div class="ups">${CAT.vault.map(v => {
       const L = S.vault[v.id] || 0, done = L >= v.max, cost = v.costs[L];
       return `<div class="up"><div class="up-main"><div class="up-name">${esc(v.name)} <span class="xptext">Lv ${L} / ${v.max}</span></div><div class="up-now">Now: ${esc(v.levels[L])}</div>${done ? "" : `<div class="up-next">Next: ${esc(v.levels[L + 1])}</div>`}</div>${done ? `<span class="maxed">Maxed</span>` : `<button class="buy" data-vault="${v.id}" ${S.gold < cost ? "disabled" : ""}>Buy for ${fmtPts(cost)} gold</button>`}</div>`;
     }).join("")}</div>`;
   }
   document.querySelectorAll("[data-vault]").forEach(b => b.onclick = () => shopAction("/api/buy", { kind: "vault", id: b.dataset.vault }));
+  document.querySelectorAll("[data-exch]").forEach(b => b.onclick = () => shopAction("/api/buy", { kind: b.dataset.exch }));
   document.querySelectorAll("[data-up]").forEach(b => b.onclick = () => shopAction("/api/buy", { kind: "upgrade", id: b.dataset.up }));
   document.querySelectorAll("[data-buy]").forEach(b => b.onclick = () => shopAction("/api/buy", { kind: "charm", id: b.dataset.buy }));
   document.querySelectorAll("[data-wear]").forEach(b => b.onclick = () => shopAction("/api/wear", { id: S.wear === b.dataset.wear ? null : b.dataset.wear }));

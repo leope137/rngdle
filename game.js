@@ -68,6 +68,10 @@ const VAULT = [
 const vlv = (u, id) => (u.vault && u.vault[id]) || 0;
 const vaultCost = (v, L) => Math.ceil(v.base * Math.pow(v.grow, L));
 const vaultOpen = u => UPG.every(x => lvl(u, x.id) >= x.prices.length);
+// Gold Exchange: trade points for gold. Each trade costs about 3× more points than the last
+// and gives 5 more gold, so points never stop being useful but can't buy the Vault outright.
+const exchCost = n => Math.pow(10, 6 + n / 2);
+const exchGold = n => 5 * (n + 1);
 
 const charmOf = id => CHARMS.find(c => c.id === id);
 const lvl = (u, id) => u.owned[id] || 0;
@@ -257,6 +261,16 @@ function buy(u, kind, id) {
     u.wallet -= cost; u.charmLv = u.charmLv || {}; u.charmLv[id] = L + 1;
     return `${c.name} is now level ${L + 1}.`;
   }
+  if (kind === "exchange" || kind === "exchangemax") {
+    if (!vaultOpen(u)) throw new GameError("Max every upgrade to open the Gold Exchange.");
+    let n = u.exch || 0, trades = 0, got = 0;
+    while (u.wallet >= exchCost(n) && trades < (kind === "exchange" ? 1 : 1000)) {
+      u.wallet -= exchCost(n); got += addGold(u, exchGold(n)); n += 1; trades += 1;
+    }
+    if (!trades) throw new GameError("Not enough points.");
+    u.exch = n;
+    return `Traded ${trades} time${trades > 1 ? "s" : ""} for ${got.toLocaleString("en-US")} gold.`;
+  }
   if (kind === "vault") {
     if (!vaultOpen(u)) throw new GameError("Max every upgrade to open the Vault.");
     const v = VAULT.find(x => x.id === id); if (!v) throw new GameError("That Vault upgrade doesn't exist.");
@@ -419,6 +433,7 @@ function publicState(u, todayKey) {
     mines: u.mines ? { revealed: u.mines.revealed, pot: u.mines.pot, count: u.mines.count || u.mines.bombs.length, next: minesNext({ ...u.mines, count: u.mines.count || u.mines.bombs.length }) } : null,
     wheelReadyAt: u.wheelAt + DAY, hilo: u.hilo ? { ...u.hilo, odds: { hi: hiloPayout(u.hilo.card, "hi"), lo: hiloPayout(u.hilo.card, "lo") } } : null,
     owned: u.owned, charms: u.charms, wear: u.wear,
+    exch: { count: u.exch || 0, cost: exchCost(u.exch || 0), gold: Math.round(exchGold(u.exch || 0) * (1 + 0.05 * vlv(u, "midas"))) },
     charmLv: u.charmLv || {}, wheel: wheelFor(u).map(p => p.label), levelBonus: levelMult(u),
     level: u.level || 1, xp: u.xp || 0, xpNext: xpToNext(u.level || 1), gold: u.gold || 0, vault: u.vault || {}, vaultOpen: vaultOpen(u),
     history: u.history.slice(0, 30), badgeCounts: u.badgeCounts,
