@@ -36,19 +36,23 @@ const UPG = [
   { id: "dice",   name: "Lucky Dice",   vals: [1, 2, 3, 4],            prices: [30000, 3000000, 300000000],
     desc: v => v > 1 ? `Each roll secretly tries ${v} times and keeps the best` : "One try per roll" },
 ];
+// charms level up from 1 to 5. v holds each level's strength, d describes it.
 const CHARMS = [
-  { id: "ring",    sym: "◎", kind: "Points", name: "Even Ring",        desc: "×2 on even rolls",                              price: 1000,     m: r => r.n % 2 === 0 ? 2 : 1 },
-  { id: "seven",   sym: "7", kind: "Points", name: "Lucky Seven Pin",  desc: "×3 if your roll has a 7 in it",                 price: 3000,     m: r => r.s.includes("7") ? 3 : 1 },
-  { id: "eight",   sym: "8", kind: "Luck",   name: "Magic Eight",      desc: "8s land twice as often",                        price: 15000 },
-  { id: "crown",   sym: "♛", kind: "Points", name: "Doubles Crown",    desc: "×4 if two same digits sit side by side",        price: 25000,    m: r => r.badges.includes("shape:dbl") ? 4 : 1 },
-  { id: "pendant", sym: "◆", kind: "Points", name: "Prime Pendant",    desc: "×6 on prime rolls",                             price: 50000,    m: r => r.badges.includes("math:prime") ? 6 : 1 },
-  { id: "shoe",    sym: "∩", kind: "Luck",   name: "Horseshoe",        desc: "A roll under 1,000 points gets one free reroll", price: 75000 },
-  { id: "hourglass", sym: "⧗", kind: "Time", name: "Hourglass",        desc: "Your wait goes 2× faster",                      price: 150000 },
-  { id: "clover",  sym: "♣", kind: "Luck",   name: "Four-Leaf Clover", desc: "Leading digits vanish twice as often",          price: 200000 },
-  { id: "shades",  sym: "◐", kind: "Points", name: "Mirror Shades",    desc: "×25 on palindromes",                            price: 1000000,  m: r => r.badges.includes("shape:pal") ? 25 : 1 },
-  { id: "mirror",  sym: "⇆", kind: "Luck",   name: "Mirror Charm",     desc: "1 in 5 rolls flip into a palindrome",           price: 5000000 },
-  { id: "cloak",   sym: "☾", kind: "Points", name: "Ghost Cloak",      desc: "×5 for every digit that vanishes",              price: 10000000, m: r => Math.pow(5, 6 - r.s.length) },
+  { id: "ring",    sym: "◎", kind: "Points", name: "Even Ring",        price: 1000,     v: [2, 3, 4, 5, 6],            d: x => `×${x} on even rolls`,                          m: (r, x) => r.n % 2 === 0 ? x : 1 },
+  { id: "seven",   sym: "7", kind: "Points", name: "Lucky Seven Pin",  price: 3000,     v: [3, 4, 5, 7, 10],           d: x => `×${x} if your roll has a 7 in it`,             m: (r, x) => r.s.includes("7") ? x : 1 },
+  { id: "eight",   sym: "8", kind: "Luck",   name: "Magic Eight",      price: 15000,    v: [2, 3, 4, 5, 6],            d: x => `8s land ${x}× as often` },
+  { id: "crown",   sym: "♛", kind: "Points", name: "Doubles Crown",    price: 25000,    v: [4, 6, 8, 11, 15],          d: x => `×${x} if two same digits sit side by side`,    m: (r, x) => r.badges.includes("shape:dbl") ? x : 1 },
+  { id: "pendant", sym: "◆", kind: "Points", name: "Prime Pendant",    price: 50000,    v: [6, 9, 13, 18, 25],         d: x => `×${x} on prime rolls`,                         m: (r, x) => r.badges.includes("math:prime") ? x : 1 },
+  { id: "shoe",    sym: "∩", kind: "Luck",   name: "Horseshoe",        price: 75000,    v: [3, 4, 5, 6, 7],            d: x => `A roll under ${Math.pow(10, x).toLocaleString("en-US")} points gets one free reroll` },
+  { id: "hourglass", sym: "⧗", kind: "Time", name: "Hourglass",        price: 150000,   v: [2, 2.25, 2.5, 2.75, 3],    d: x => `Your wait goes ${x}× faster` },
+  { id: "clover",  sym: "♣", kind: "Luck",   name: "Four-Leaf Clover", price: 200000,   v: [2, 2.5, 3, 3.5, 4],        d: x => `Leading digits vanish ${x}× as often` },
+  { id: "shades",  sym: "◐", kind: "Points", name: "Mirror Shades",    price: 1000000,  v: [25, 40, 60, 90, 150],      d: x => `×${x} on palindromes`,                         m: (r, x) => r.badges.includes("shape:pal") ? x : 1 },
+  { id: "mirror",  sym: "⇆", kind: "Luck",   name: "Mirror Charm",     price: 5000000,  v: [5, 4, 3.5, 3, 2.5],        d: x => `1 in ${x} rolls flip into a palindrome` },
+  { id: "cloak",   sym: "☾", kind: "Points", name: "Ghost Cloak",      price: 10000000, v: [5, 7, 10, 14, 20],         d: x => `×${x} for every digit that vanishes`,          m: (r, x) => Math.pow(x, 6 - r.s.length) },
 ];
+const CHARM_MAX = 5;
+const charmUpCost = (c, L) => c.price * Math.pow(10, L); // level L to L+1
+
 
 /* ---------- the Vault: opens once every upgrade above is maxed. Paid in gold. Built to take years. ---------- */
 const VAULT = [
@@ -56,7 +60,7 @@ const VAULT = [
   { id: "quick",  name: "Quick Hands",  max: 100, base: 30,  grow: 1.10, desc: L => `Rolls and tickets come ${+((1 - Math.pow(0.985, L)) * 100).toFixed(1)}% faster` },
   { id: "deep",   name: "Deep Bank",    max: 92,  base: 15,  grow: 1.10, desc: L => `Save up to ${L} extra rolls` },
   { id: "press",  name: "Ticket Press", max: 45,  base: 15,  grow: 1.12, desc: L => `Hold up to ${L} extra tickets` },
-  { id: "stake",  name: "Free Stake",   max: 100, base: 10,  grow: 1.08, desc: L => `Free arcade games start with ${(300 * (1 + L)).toLocaleString("en-US")} points` },
+  { id: "stake",  name: "Free Stake",   max: 100, base: 10,  grow: 1.08, desc: L => `Free arcade stakes are ${1 + L}× bigger` },
   { id: "scholar",name: "Scholar",      max: 100, base: 20,  grow: 1.09, desc: L => `Earn ${10 * L}% more XP` },
   { id: "midas",  name: "Midas",        max: 100, base: 50,  grow: 1.10, desc: L => `Earn ${5 * L}% more gold` },
   { id: "star",   name: "Star Dice",    max: 10,  base: 100, grow: 1.50, desc: L => `Lucky Dice tries ${L} extra times` },
@@ -69,10 +73,14 @@ const charmOf = id => CHARMS.find(c => c.id === id);
 const lvl = (u, id) => u.owned[id] || 0;
 const val = (u, id) => UPG.find(x => x.id === id).vals[lvl(u, id)];
 const wearing = (u, id) => u.wear === id;
-const waitMs = u => Math.max(MIN, val(u, "clock") * MIN / (wearing(u, "hourglass") ? 2 : 1) * Math.pow(0.985, vlv(u, "quick")));
+const charmLv = (u, id) => (u.charmLv && u.charmLv[id]) || 1;
+const cv = (u, id) => charmOf(id).v[charmLv(u, id) - 1]; // strength of a charm at its level
+const waitMs = u => Math.max(MIN, val(u, "clock") * MIN / (wearing(u, "hourglass") ? cv(u, "hourglass") : 1) * Math.pow(0.985, vlv(u, "quick")));
 const bankCap = u => val(u, "bank") + vlv(u, "deep");
 const ticketCap = u => TICKET_CAP + vlv(u, "press");
-const freeStake = u => 300 * (1 + vlv(u, "stake"));
+// higher levels grow free arcade stakes and wheel prizes by 5% per level
+const levelMult = u => Math.pow(1.05, (u.level || 1) - 1);
+const freeStake = u => Math.round(300 * levelMult(u) * (1 + vlv(u, "stake")));
 
 /* ---------- levels ---------- */
 const xpToNext = L => Math.round(100 * Math.pow(L, 1.4));
@@ -90,15 +98,29 @@ function addGold(u, n) { const g = Math.round(n * (1 + 0.05 * vlv(u, "midas")));
 
 /* ---------- wheel and minigame settings ---------- */
 const WHEEL = [
-  { label: "1,000 pts",     w: 28, pts: 1000 },
-  { label: "+1 roll",       w: 16, rolls: 1 },
-  { label: "5,000 pts",     w: 22, pts: 5000 },
-  { label: "Refill rolls",  w: 7,  refill: true },
-  { label: "25,000 pts",    w: 12, pts: 25000 },
-  { label: "+3 rolls",      w: 6,  rolls: 3 },
-  { label: "250,000 pts",   w: 3,  pts: 250000 },
-  { label: "+1 ticket",     w: 6,  tickets: 1 },
+  { w: 28, pts: 1000 },
+  { w: 16, rolls: 1 },
+  { w: 22, pts: 5000 },
+  { w: 7,  refill: true },
+  { w: 12, pts: 25000 },
+  { w: 6,  rolls: 3 },
+  { w: 3,  pts: 250000 },
+  { w: 6,  tickets: 1 },
 ];
+// prizes for this player: points grow 5% per level, rolls and tickets grow every 10 levels
+function wheelFor(u) {
+  const L = u.level || 1, m = levelMult(u), extra = Math.floor(L / 10);
+  return WHEEL.map(p => {
+    if (p.pts) { const pts = Math.round(p.pts * m); return { w: p.w, pts, label: `${shortNum(pts)} pts` }; }
+    if (p.rolls) { const n = p.rolls + extra; return { w: p.w, rolls: n, label: `+${n} rolls`.replace("+1 rolls", "+1 roll") }; }
+    if (p.tickets) { const n = p.tickets + extra; return { w: p.w, tickets: n, label: `+${n} ticket${n > 1 ? "s" : ""}` }; }
+    return { w: p.w, refill: true, label: "Refill rolls" };
+  });
+}
+function shortNum(n) {
+  const u = [[1e12, "T"], [1e9, "B"], [1e6, "M"], [1e3, "K"]].find(([v]) => n >= v);
+  return u ? `${+(n / u[0]).toPrecision(3)}${u[1]}` : String(n);
+}
 const TICKET_CAP = 5, HILO_MAX_ROUNDS = 10;
 // stakes an experienced player can bet instead of playing free
 const BETS = [1e3, 1e4, 1e5, 1e6, 1e7, 1e8, 1e9, 1e10, 1e12, 1e15, 1e18, 1e21, 1e24, 1e27, 1e30];
@@ -139,16 +161,20 @@ function sync(u, now = Date.now()) {
 }
 
 /* ---------- rolling ---------- */
-function digit(u) { if (!wearing(u, "eight")) return rand(10); const x = rand(11); return x === 10 ? 8 : x; }
+function digit(u) {
+  if (!wearing(u, "eight")) return rand(10);
+  const w = cv(u, "eight"), x = rand(9 + w); // 8 gets w shares, other digits 1 each
+  return x < 8 ? x : x < 8 + w ? 8 : 9;
+}
 // six slots; a leading slot can vanish, the last slot always lands a digit
 function rollString(u) {
-  const V = val(u, "vanish"), vp = wearing(u, "clover") ? 2 : 1, echo = val(u, "echo");
+  const V = val(u, "vanish"), vp = wearing(u, "clover") ? cv(u, "clover") : 1, echo = val(u, "echo");
   let s = "", lead = true;
   for (let i = 0; i < 6; i++) {
-    if (lead && i < 5) { if (rand(V) < vp) continue; s += digit(u); lead = false; }
+    if (lead && i < 5) { if (rand(V * 100) < vp * 100) continue; s += digit(u); lead = false; }
     else s += (s.length && echo > 0 && rand(1000) < echo * 1000) ? s[s.length - 1] : digit(u);
   }
-  if (wearing(u, "mirror") && s.length >= 2 && rand(5) === 0) {
+  if (wearing(u, "mirror") && s.length >= 2 && rand(1000) < 1000 / cv(u, "mirror")) {
     const h = Math.ceil(s.length / 2);
     s = s.slice(0, h) + [...s.slice(0, Math.floor(s.length / 2))].reverse().join("");
   }
@@ -158,7 +184,7 @@ function bonusesFor(u, r) {
   const out = [];
   if (val(u, "boost") > 1) out.push(["Point Boost", val(u, "boost")]);
   const c = u.wear && charmOf(u.wear);
-  if (c && c.m) { const m = c.m(r); if (m > 1) out.push([c.name, m]); }
+  if (c && c.m) { const m = c.m(r, cv(u, c.id)); if (m > 1) out.push([c.name, m]); }
   if (vlv(u, "golden")) out.push(["Golden Touch", 1 + 0.2 * vlv(u, "golden")]);
   return out;
 }
@@ -168,7 +194,7 @@ function luckyRoll(u) {
   for (let t = 0; t < tries; t++) { const c = one(); if (!best || c.lg > best.lg) best = c; }
   const notes = [];
   if (tries > 1) notes.push(`Lucky Dice kept the best of ${tries} tries`);
-  if (wearing(u, "shoe") && best.lg < 3) {
+  if (wearing(u, "shoe") && best.lg < cv(u, "shoe")) {
     const c = one();
     notes.push(c.lg > best.lg ? "Horseshoe rerolled it and helped" : "Horseshoe rerolled it, but the first was better");
     if (c.lg > best.lg) best = c;
@@ -196,8 +222,10 @@ function doRoll(u, dateKey) {
   const rawGold = res.r.badges.reduce((a, id) => a + goldFor(id), 0);
   const gold = rawGold ? addGold(u, rawGold) : 0;
   const ups = [];
-  addXp(u, 10 + 2 * rawGold, ups);
-  return { s: res.r.s, badges: res.r.badges, bonus: res.bonus, lg: res.lg, notes: res.notes, gold, ups };
+  // rarer rolls give more XP: 5 XP for every ×10 the badges are worth
+  const xp = Math.round(10 + 5 * res.r.lg);
+  addXp(u, xp, ups);
+  return { s: res.r.s, badges: res.r.badges, bonus: res.bonus, lg: res.lg, notes: res.notes, gold, xp, ups };
 }
 
 function buy(u, kind, id) {
@@ -217,6 +245,17 @@ function buy(u, kind, id) {
     sync(u);
     u.wallet -= c.price; u.charms.push(id); u.wear = id;
     return `Bought ${c.name} and put it on.`;
+  }
+  if (kind === "charmup") {
+    const c = charmOf(id); if (!c) throw new GameError("That charm doesn't exist.");
+    if (!u.charms.includes(id)) throw new GameError("Buy the charm first.");
+    const L = charmLv(u, id);
+    if (L >= CHARM_MAX) throw new GameError("Already maxed.");
+    const cost = charmUpCost(c, L);
+    if (u.wallet < cost) throw new GameError("Not enough points.");
+    sync(u); // count time at the old speed before changing it
+    u.wallet -= cost; u.charmLv = u.charmLv || {}; u.charmLv[id] = L + 1;
+    return `${c.name} is now level ${L + 1}.`;
   }
   if (kind === "vault") {
     if (!vaultOpen(u)) throw new GameError("Max every upgrade to open the Vault.");
@@ -242,10 +281,10 @@ function spinWheel(u) {
   sync(u);
   const now = Date.now();
   if (now < u.wheelAt + DAY) throw new GameError("The wheel isn't ready yet.");
-  const total = WHEEL.reduce((a, s) => a + s.w, 0);
+  const prizes = wheelFor(u), total = prizes.reduce((a, s) => a + s.w, 0);
   let x = rand(total), idx = 0;
-  while (x >= WHEEL[idx].w) { x -= WHEEL[idx].w; idx++; }
-  const p = WHEEL[idx];
+  while (x >= prizes[idx].w) { x -= prizes[idx].w; idx++; }
+  const p = prizes[idx];
   if (p.pts) { u.wallet += p.pts; u.earned += p.pts; }
   if (p.rolls) u.charges += p.rolls;
   if (p.refill) u.charges = Math.max(u.charges, bankCap(u));
@@ -380,6 +419,7 @@ function publicState(u, todayKey) {
     mines: u.mines ? { revealed: u.mines.revealed, pot: u.mines.pot, count: u.mines.count || u.mines.bombs.length, next: minesNext({ ...u.mines, count: u.mines.count || u.mines.bombs.length }) } : null,
     wheelReadyAt: u.wheelAt + DAY, hilo: u.hilo ? { ...u.hilo, odds: { hi: hiloPayout(u.hilo.card, "hi"), lo: hiloPayout(u.hilo.card, "lo") } } : null,
     owned: u.owned, charms: u.charms, wear: u.wear,
+    charmLv: u.charmLv || {}, wheel: wheelFor(u).map(p => p.label), levelBonus: levelMult(u),
     level: u.level || 1, xp: u.xp || 0, xpNext: xpToNext(u.level || 1), gold: u.gold || 0, vault: u.vault || {}, vaultOpen: vaultOpen(u),
     history: u.history.slice(0, 30), badgeCounts: u.badgeCounts,
     streak: todayKey ? streak(u, todayKey) : 0, daysPlayed: Object.keys(u.days).length,
@@ -387,9 +427,8 @@ function publicState(u, todayKey) {
 }
 const catalog = {
   upgrades: UPG.map(u => ({ id: u.id, name: u.name, prices: u.prices, levels: u.vals.map(v => u.desc(v)) })),
-  charms: CHARMS.map(({ id, sym, kind, name, desc, price }) => ({ id, sym, kind, name, desc, price })),
+  charms: CHARMS.map(c => ({ id: c.id, sym: c.sym, kind: c.kind, name: c.name, price: c.price, max: CHARM_MAX, levels: c.v.map(c.d), upCosts: Array.from({ length: CHARM_MAX - 1 }, (_, i) => charmUpCost(c, i + 1)) })),
   vault: VAULT.map(v => ({ id: v.id, name: v.name, max: v.max, costs: Array.from({ length: v.max }, (_, L) => vaultCost(v, L)), levels: Array.from({ length: v.max + 1 }, (_, L) => v.desc(L)) })),
-  wheel: WHEEL.map(w => w.label),
   bets: BETS,
   hilo: { maxRounds: HILO_MAX_ROUNDS },
   mines: { tiles: MINES_TILES },

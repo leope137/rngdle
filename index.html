@@ -170,7 +170,9 @@ button.buy.on { border-color: var(--line); color: var(--muted); }
 .kind { font-size: .66rem; text-transform: uppercase; letter-spacing: .08em; color: var(--muted); font-weight: 600; }
 .kind.luck { color: var(--t-uncommon); }
 .charm-desc { font-size: .8rem; color: var(--muted); }
-.charm button { margin-top: 6px; justify-self: start; }
+.charm button { justify-self: start; }
+.charm-btns { display: flex; gap: 6px; flex-wrap: wrap; margin-top: 6px; }
+.charm-next { font-size: .76rem; color: var(--t-uncommon); }
 .charm.worn { border-color: var(--hot); }
 .worn-tag { position: absolute; top: 10px; right: 10px; font-size: .68rem; text-transform: uppercase; letter-spacing: .08em; color: var(--hot); font-weight: 600; }
 .reset-box { border: 1.5px solid var(--t-legend); border-radius: 12px; padding: 12px 14px; display: grid; gap: 8px; }
@@ -324,7 +326,7 @@ button.danger { border-color: #C2412D; background: #C2412D; color: #fff; }
   <div class="play2">
     <section class="panel">
       <h2>Daily Wheel</h2>
-      <div class="sub">One free spin a day</div>
+      <div class="sub" id="wheelSub">One free spin a day</div>
       <div class="wheelwrap"><div class="pointer"></div><div class="wheel" id="wheel"></div><div class="hub"></div></div>
       <button class="primary" id="spinBtn">Spin</button>
       <div class="msg" id="wheelMsg"></div>
@@ -414,7 +416,7 @@ button.danger { border-color: #C2412D; background: #C2412D; color: #fff; }
   </section>
 
   <div class="toasts" id="toasts" aria-live="polite"></div>
-  <footer>Levels: every roll and arcade game earns XP. Each level gives points, gold and a ticket, with 3 tickets every 5th level. Gold comes from rare badges (Rare 2, Epic 8, Legendary 30) and is spent in the Vault, which opens once every upgrade is maxed. Each roll has six slots that roll left to right. A leading slot has a 1 in 11 chance to vanish, and if it does the next one can vanish too. The last slot always lands a digit. Every badge multiplies your score by (1 ÷ its chance) to the power of 0.75, so rare badges count for a lot. Rolls happen on the server, so nobody can fake one.</footer>
+  <footer>Levels: every roll and arcade game earns XP, and rarer rolls earn more. Each level makes free arcade stakes and daily wheel prizes 5% bigger, and every 10 levels adds an extra roll or ticket to the wheel. Charms can be upgraded up to level 5. Each level gives points, gold and a ticket, with 3 tickets every 5th level. Gold comes from rare badges (Rare 2, Epic 8, Legendary 30) and is spent in the Vault, which opens once every upgrade is maxed. Each roll has six slots that roll left to right. A leading slot has a 1 in 11 chance to vanish, and if it does the next one can vanish too. The last slot always lands a digit. Every badge multiplies your score by (1 ÷ its chance) to the power of 0.75, so rare badges count for a lot. Rolls happen on the server, so nobody can fake one.</footer>
 </div>
 
 <script src="/badges.js"></script>
@@ -623,7 +625,7 @@ async function doRoll() {
   practice = null;
   const r = data.roll;
   lastShown = { s: r.s, lg: r.lg, bonus: r.bonus, notes: r.notes };
-  play(r.s, r.badges, r.bonus, r.lg, () => { renderAll(); setNote(r.notes.concat(r.gold ? [`+${fmt(r.gold)} gold from rare badges`] : []).join(". ")); showUps(r.ups); loadLeaderboard(); });
+  play(r.s, r.badges, r.bonus, r.lg, () => { renderAll(); setNote(r.notes.concat([`+${fmt(r.xp)} XP`], r.gold ? [`+${fmt(r.gold)} gold from rare badges`] : []).join(". ")); showUps(r.ups); loadLeaderboard(); });
 }
 function doPractice() {
   if (busy) return;
@@ -648,15 +650,21 @@ function share() {
 
 /* ---------- daily wheel ---------- */
 const WHEEL_COLORS = ["--w1", "--w2", "--w1", "--w3", "--w1", "--w2", "--w4", "--w3"];
+let wheelKey = "";
 function buildWheel() {
-  const n = CAT.wheel.length, seg = 360 / n;
-  const stops = CAT.wheel.map((_, i) => `var(${WHEEL_COLORS[i % WHEEL_COLORS.length]}) ${i * seg}deg ${(i + 1) * seg}deg`).join(", ");
+  // prizes grow with your level, so the wheel is drawn from your own prize list
+  const labels = S.wheel, key = labels.join("|");
+  if (key === wheelKey) return; wheelKey = key;
+  const n = labels.length, seg = 360 / n;
+  const stops = labels.map((_, i) => `var(${WHEEL_COLORS[i % WHEEL_COLORS.length]}) ${i * seg}deg ${(i + 1) * seg}deg`).join(", ");
   const w = $("wheel");
   w.style.background = `conic-gradient(${stops})`;
-  w.innerHTML = CAT.wheel.map((label, i) => `<span style="transform: rotate(${i * seg + seg / 2 - 90}deg)">${esc(label)}</span>`).join("");
+  w.innerHTML = labels.map((label, i) => `<span style="transform: rotate(${i * seg + seg / 2 - 90}deg)">${esc(label)}</span>`).join("");
 }
 function renderWheel() {
+  if (!busy) buildWheel();
   const ready = now() >= S.wheelReadyAt;
+  $("wheelSub").textContent = S.level > 1 ? `One free spin a day · level ${S.level} prizes` : "One free spin a day · prizes grow as you level up";
   const b = $("spinBtn");
   b.disabled = !ready || busy;
   b.innerHTML = ready ? "Spin" : `Next spin in <span id="wheelWait">${fmtWait(S.wheelReadyAt - now())}</span>`;
@@ -667,7 +675,7 @@ $("spinBtn").onclick = async () => {
   let data;
   try { data = await api("/api/wheel", {}); }
   catch (e) { busy = false; $("wheelMsg").className = "msg bad"; $("wheelMsg").textContent = e.message; renderWheel(); return; }
-  const n = CAT.wheel.length, seg = 360 / n, idx = data.spin.index;
+  const n = S.wheel.length, seg = 360 / n, idx = data.spin.index;
   const target = 360 - (idx * seg + seg / 2);
   wheelTurn += 360 * 5 + ((target - (wheelTurn % 360)) + 360) % 360;
   $("wheel").style.transform = `rotate(${wheelTurn}deg)`;
@@ -900,11 +908,14 @@ function renderShop() {
       ${maxed ? `<span class="maxed">Maxed</span>` : `<button class="buy" data-up="${u.id}" ${S.wallet < price ? "disabled" : ""}>Buy for ${fmtPts(price)}</button>`}</div>`;
   }).join("");
   $("charms").innerHTML = CAT.charms.map(c => {
-    const own = S.charms.includes(c.id), on = S.wear === c.id;
+    const own = S.charms.includes(c.id), on = S.wear === c.id, L = own ? (S.charmLv[c.id] || 1) : 1, maxed = L >= c.max, up = c.upCosts[L - 1];
     const btn = !own ? `<button class="buy" data-buy="${c.id}" ${S.wallet < c.price ? "disabled" : ""}>Buy for ${fmtPts(c.price)}</button>`
       : `<button class="buy ${on ? "on" : ""}" data-wear="${c.id}">${on ? "Take off" : "Wear"}</button>`;
-    return `<div class="charm${on ? " worn" : ""}${own ? "" : " locked"}"><div class="sym">${c.sym}</div><div class="kind k-${c.kind.toLowerCase()}">${c.kind}</div><div class="charm-name">${esc(c.name)}</div><div class="charm-desc">${esc(c.desc)}</div>${on ? `<div class="worn-tag">Wearing</div>` : ""}${btn}</div>`;
+    const upBtn = own && !maxed ? `<button class="buy" data-cup="${c.id}" ${S.wallet < up ? "disabled" : ""}>Upgrade for ${fmtPts(up)}</button>` : "";
+    const next = own && !maxed ? `<div class="charm-next">Next: ${esc(c.levels[L])}</div>` : "";
+    return `<div class="charm${on ? " worn" : ""}${own ? "" : " locked"}"><div class="sym">${c.sym}</div><div class="kind k-${c.kind.toLowerCase()}">${c.kind}${own ? ` · Lv ${L}/${c.max}` : ""}</div><div class="charm-name">${esc(c.name)}</div><div class="charm-desc">${esc(c.levels[L - 1])}</div>${next}${on ? `<div class="worn-tag">Wearing</div>` : ""}<div class="charm-btns">${btn}${upBtn}</div></div>`;
   }).join("");
+  document.querySelectorAll("[data-cup]").forEach(b => b.onclick = () => shopAction("/api/buy", { kind: "charmup", id: b.dataset.cup }));
   const maxed = CAT.upgrades.filter(u => (S.owned[u.id] || 0) >= u.prices.length).length;
   if (!S.vaultOpen) {
     $("vault").innerHTML = `<h3>🔒 The Vault <span class="ct">${maxed} / ${CAT.upgrades.length} upgrades maxed</span></h3><p class="note">Max every upgrade above to open the Vault, a second shop paid in gold. It has upgrades with up to 100 levels each. You have <span class="gold">${fmtPts(S.gold)} gold</span> saved for it.</p>`;
@@ -1027,7 +1038,6 @@ setInterval(() => { if (S && !$("gameView").hidden && !busy) loadLeaderboard(); 
     CAT = cat;
     DEFS = B.defs.map((d, i) => { const p = probs[i], mult = Math.pow(1 / p, 0.75); return { ...d, p, mult, lg: Math.log10(mult) }; });
     byId = Object.fromEntries(DEFS.map(d => [d.id, d]));
-    buildWheel();
   } catch (e) { $("loading").innerHTML = `<p class="note" style="text-align:center">Can't reach the server. Refresh to try again.</p>`; return; }
   try { await enterGame(); } catch (e) { if ($("authView").hidden) showAuth(); }
 })();
