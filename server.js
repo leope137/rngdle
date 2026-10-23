@@ -113,22 +113,23 @@ app.post("/api/roll", auth, act((u, req) => ({ roll: G.doRoll(u, today(req)) }))
 app.post("/api/buy", auth, act((u, req) => ({ message: G.buy(u, req.body.kind, req.body.id) })));
 app.post("/api/wear", auth, act((u, req) => ({ message: G.wear(u, req.body.id ?? null) })));
 app.post("/api/wheel", auth, act(u => ({ spin: G.spinWheel(u) })));
-app.post("/api/hilo/start", auth, act(u => ({ game: G.hiloStart(u) })));
+app.post("/api/hilo/start", auth, act((u, req) => ({ game: G.hiloStart(u, req.body.bet) })));
 app.post("/api/hilo/guess", auth, act((u, req) => ({ guess: G.hiloGuess(u, req.body.dir) })));
-app.post("/api/hilo/cashout", auth, act(u => ({ won: G.hiloCashOut(u) })));
-app.post("/api/mines/start", auth, act(u => G.minesStart(u)));
+app.post("/api/hilo/cashout", auth, act(u => G.hiloCashOut(u)));
+app.post("/api/mines/start", auth, act((u, req) => G.minesStart(u, req.body.bet, req.body.count)));
 app.post("/api/mines/pick", auth, act((u, req) => ({ pick: G.minesPick(u, req.body.tile) })));
-app.post("/api/mines/cashout", auth, act(u => ({ won: G.minesCashOut(u) })));
-app.post("/api/slots/spin", auth, act(u => ({ spin: G.slotsSpin(u) })));
-app.post("/api/pick/play", auth, act((u, req) => ({ pick: G.pickPlay(u, req.body.digit) })));
+app.post("/api/mines/cashout", auth, act(u => G.minesCashOut(u)));
+app.post("/api/slots/spin", auth, act((u, req) => ({ spin: G.slotsSpin(u, req.body.bet) })));
+app.post("/api/pick/play", auth, act((u, req) => ({ pick: G.pickPlay(u, req.body.digit, req.body.bet, req.body.mode) })));
 app.post("/api/reset", auth, act(u => ({ __replace: G.resetProgress(u) })));
 
 app.get("/api/leaderboard", auth, async (req, res) => {
   const users = await store.allUsers();
-  const rows = users.map(u => ({ name: u.name, best: u.best ? { s: u.best.s, lg: u.best.lg } : null, earned: u.earned || 0, rolls: u.totalRolls || 0 }));
+  const rows = users.map(u => ({ name: u.name, best: u.best ? { s: u.best.s, lg: u.best.lg } : null, earned: u.earned || 0, rolls: u.totalRolls || 0, level: u.level || 1, xp: u.xp || 0 }));
   send(res, 200, {
     best: rows.filter(r => r.best).sort((a, b) => b.best.lg - a.best.lg).slice(0, 25),
     earned: rows.filter(r => r.earned > 0).sort((a, b) => b.earned - a.earned).slice(0, 25),
+    level: rows.slice().sort((a, b) => b.level - a.level || b.xp - a.xp).slice(0, 25),
   });
 });
 

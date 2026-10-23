@@ -234,6 +234,27 @@ button.danger { border-color: #C2412D; background: #C2412D; color: #fff; }
 .lb .nm small { font-weight: 400; color: var(--muted); font-family: var(--f-mono); }
 .hist li { grid-template-columns: 96px minmax(0, 1fr) minmax(0, 40%); }
 .kind.k-luck { color: var(--t-uncommon); } .kind.k-time { color: var(--accent); }
+/* levels, stakes, vault */
+.levelbar { display: grid; grid-template-columns: auto minmax(0, 1fr) auto; gap: 12px; align-items: center; margin-top: -14px; }
+.lvl { font-family: var(--f-display); font-weight: 800; font-size: 1rem; color: var(--accent); white-space: nowrap; }
+.xpbar { height: 8px; border-radius: 4px; background: var(--line); overflow: hidden; }
+.xpbar i { display: block; height: 100%; background: var(--accent); transition: width .4s ease; }
+.xptext { font-family: var(--f-mono); font-size: .75rem; color: var(--muted); white-space: nowrap; }
+.gold { color: var(--hot); font-weight: 600; }
+.stakerow { display: flex; align-items: center; gap: 10px; justify-content: center; flex-wrap: wrap; }
+.stakerow label { font-size: .8rem; font-weight: 600; color: var(--muted); }
+.stakerow select { font: inherit; font-family: var(--f-mono); font-size: .85rem; padding: 6px 10px; border-radius: 8px; border: 1.5px solid var(--line); background: var(--paper); color: var(--ink); max-width: 100%; }
+.seg { display: flex; justify-content: center; gap: 6px; }
+.seg button { padding: 6px 14px; font-size: .84rem; border-color: var(--line); color: var(--muted); }
+.seg button[aria-pressed="true"] { border-color: var(--accent); color: var(--accent); }
+.vault { margin-top: 18px; border: 1.5px solid var(--hot); border-radius: 14px; padding: 14px 16px; display: grid; gap: 4px; }
+.vault h3 { margin: 0; color: var(--ink); display: flex; justify-content: space-between; gap: 10px; flex-wrap: wrap; }
+.vault .note { margin: 0; }
+.vault .ups { margin-top: 6px; }
+.vault button.buy { border-color: var(--hot); color: var(--ink); }
+.toasts { position: fixed; left: 50%; transform: translateX(-50%); bottom: calc(16px + env(safe-area-inset-bottom, 0px)); display: grid; gap: 8px; z-index: 20; width: min(420px, calc(100% - 32px)); pointer-events: none; }
+.toast { background: var(--ink); color: var(--paper); border-radius: 12px; padding: 10px 14px; font-size: .88rem; box-shadow: 0 10px 30px -12px rgba(0,0,0,.5); animation: chipin .25s ease-out; }
+.toast b { color: var(--hot); }
 /* arcade */
 .arcade-head { display: flex; align-items: center; gap: 10px; }
 .arcade-head .back { padding: 5px 10px; font-size: .8rem; }
@@ -282,6 +303,7 @@ button.danger { border-color: #C2412D; background: #C2412D; color: #fff; }
     <h1>RNG<span>dle</span></h1>
     <div class="who"><span>Playing as <b id="meName"></b></span><button class="ghost" id="logoutBtn">Log out</button></div>
   </header>
+  <div class="levelbar" id="levelBar"></div>
 
   <section class="ticket" aria-live="polite">
     <div class="stub"><span id="ticketNo">Ticket</span><span class="mode" id="mode">Roll</span></div>
@@ -310,6 +332,7 @@ button.danger { border-color: #C2412D; background: #C2412D; color: #fff; }
     <section class="panel">
       <div class="arcade-head"><button class="ghost back" id="arcadeBack" hidden>← Games</button><h2 id="arcadeTitle">Arcade</h2></div>
       <div class="sub" id="hlTickets"></div>
+      <div class="stakerow" id="stakeRow" hidden><label for="stakeSel">Stake</label><select id="stakeSel"></select></div>
       <div class="arcade-menu" id="arcadeMenu"></div>
       <div class="game" id="gameHilo" hidden>
         <div class="cards"><div class="card" id="hlCard">?</div><div class="card ghost" id="hlNext">?</div></div>
@@ -318,6 +341,7 @@ button.danger { border-color: #C2412D; background: #C2412D; color: #fff; }
         <div class="msg" id="hlMsg"></div>
       </div>
       <div class="game" id="gameMines" hidden>
+        <div class="stakerow" id="mnCountRow"><label for="mnCount">Mines</label><select id="mnCount"></select></div>
         <div class="mines" id="mnGrid"></div>
         <div class="pot" id="mnPot"></div>
         <div class="hl-actions" id="mnActions"></div>
@@ -330,6 +354,7 @@ button.danger { border-color: #C2412D; background: #C2412D; color: #fff; }
         <div class="msg" id="slMsg"></div>
       </div>
       <div class="game" id="gamePick" hidden>
+        <div class="seg" id="pkMode"><button data-mode="classic" aria-pressed="true">Classic</button><button data-mode="sniper" aria-pressed="false">Sniper</button></div>
         <div class="pot" id="pkInfo"></div>
         <div class="digits" id="pkDigits"></div>
         <div class="reels"><div class="reel" id="pkRoll">?</div></div>
@@ -345,11 +370,12 @@ button.danger { border-color: #C2412D; background: #C2412D; color: #fff; }
     <div class="ups" id="upgrades"></div>
     <h3>Charms <span class="ct">wear one at a time</span></h3>
     <div class="charms" id="charms"></div>
+    <div class="vault" id="vault"></div>
   </section>
 
   <section>
     <h2>Leaderboard</h2>
-    <div class="tabs"><button id="lbBest" aria-pressed="true">Best roll</button><button id="lbEarned" aria-pressed="false">Total points</button></div>
+    <div class="tabs"><button id="lbBest" aria-pressed="true">Best roll</button><button id="lbEarned" aria-pressed="false">Total points</button><button id="lbLevel" aria-pressed="false">Level</button></div>
     <ol class="lb" id="lb"></ol>
   </section>
 
@@ -387,7 +413,8 @@ button.danger { border-color: #C2412D; background: #C2412D; color: #fff; }
     <div class="copied" id="resetMsg" style="text-align:left"></div>
   </section>
 
-  <footer>Each roll has six slots that roll left to right. A leading slot has a 1 in 11 chance to vanish, and if it does the next one can vanish too. The last slot always lands a digit. Every badge multiplies your score by (1 ÷ its chance) to the power of 0.75, so rare badges count for a lot. Rolls happen on the server, so nobody can fake one.</footer>
+  <div class="toasts" id="toasts" aria-live="polite"></div>
+  <footer>Levels: every roll and arcade game earns XP. Each level gives points, gold and a ticket, with 3 tickets every 5th level. Gold comes from rare badges (Rare 2, Epic 8, Legendary 30) and is spent in the Vault, which opens once every upgrade is maxed. Each roll has six slots that roll left to right. A leading slot has a 1 in 11 chance to vanish, and if it does the next one can vanish too. The last slot always lands a digit. Every badge multiplies your score by (1 ÷ its chance) to the power of 0.75, so rare badges count for a lot. Rolls happen on the server, so nobody can fake one.</footer>
 </div>
 
 <script src="/badges.js"></script>
@@ -530,11 +557,11 @@ function renderTicket() {
   }
   $("range").textContent = `Six digits roll one at a time, and leading digits can vanish. ${fmt(DEFS.length)} badges to find.`;
   const ready = S.charges >= 1;
-  const rollLabel = ready ? `Roll${S.charges > 1 ? ` (${Math.floor(S.charges)} ready)` : ""}` : `Next roll in <span id="rollWait">${fmtWait(S.nextChargeAt - now())}</span>`;
+  const rollLabel = ready ? `Roll${S.charges > 1 ? ` (${Math.floor(S.charges)} ready)` : ""}` : `Next roll in <span id="rollWait">${countdown(S.nextChargeAt - now())}</span>`;
   setActions(`<button class="primary" id="rollBtn" ${ready ? "" : "disabled"}>${rollLabel}</button>${lastShown ? `<button id="shareBtn">Copy result</button>` : ""}<button id="pracBtn">Practice</button>`,
     { rollBtn: doRoll, shareBtn: share, pracBtn: doPractice });
   const mins = +(S.waitMs / 60000).toFixed(1);
-  $("rollInfo").textContent = `A new roll every ${mins} minute${mins === 1 ? "" : "s"}. You can save up ${S.cap} roll${S.cap === 1 ? "" : "s"}.${ready && S.charges < S.cap && S.nextChargeAt ? ` Next one in ${fmtWait(S.nextChargeAt - now())}.` : ""}`;
+  $("rollInfo").innerHTML = `A new roll every ${mins} minute${mins === 1 ? "" : "s"}. You can save up ${S.cap} roll${S.cap === 1 ? "" : "s"}.${ready && S.charges < S.cap && S.nextChargeAt ? ` Next one in <span id="rollWait2">${fmtWait(S.nextChargeAt - now())}</span>.` : ""}`;
 }
 
 /* the roll animation: six slots roll one digit at a time, left to right */
@@ -596,7 +623,7 @@ async function doRoll() {
   practice = null;
   const r = data.roll;
   lastShown = { s: r.s, lg: r.lg, bonus: r.bonus, notes: r.notes };
-  play(r.s, r.badges, r.bonus, r.lg, () => { renderAll(); setNote(r.notes.join(". ")); loadLeaderboard(); });
+  play(r.s, r.badges, r.bonus, r.lg, () => { renderAll(); setNote(r.notes.concat(r.gold ? [`+${fmt(r.gold)} gold from rare badges`] : []).join(". ")); showUps(r.ups); loadLeaderboard(); });
 }
 function doPractice() {
   if (busy) return;
@@ -651,17 +678,46 @@ $("spinBtn").onclick = async () => {
   }, reduce ? 50 : 4100);
 };
 
+/* ---------- levels, gold and toasts ---------- */
+function toast(html) {
+  const el = document.createElement("div"); el.className = "toast"; el.innerHTML = html;
+  $("toasts").appendChild(el); setTimeout(() => el.remove(), 5000);
+}
+function showUps(ups) {
+  (ups || []).forEach(u => toast(`<b>Level ${u.level}!</b> +${fmt(u.pts)} points, +${fmt(u.gold)} gold, +${u.tickets} ticket${u.tickets > 1 ? "s" : ""}`));
+}
+function renderLevel() {
+  const pct = Math.min(100, 100 * S.xp / S.xpNext);
+  $("levelBar").innerHTML = `<span class="lvl">Level ${S.level}</span><span class="xpbar" title="${fmt(S.xp)} / ${fmt(S.xpNext)} XP"><i style="width:${pct.toFixed(1)}%"></i></span><span class="xptext">${fmt(S.xp)} / ${fmt(S.xpNext)} XP · <span class="gold">${fmtPts(S.gold)} gold</span></span>`;
+}
+
+/* ---------- stakes: play free, or bet your own points ---------- */
+let stakeChoice = 0;
+try { stakeChoice = +localStorage.getItem("rngdle.stake") || 0; } catch (e) {}
+function curStake() { return stakeChoice && S.wallet >= stakeChoice ? stakeChoice : 0; }
+function stakeAmount() { return curStake() || S.freeStake; }
+function renderStake() {
+  const opts = [`<option value="0">Free (${fmtPts(S.freeStake)} pts)</option>`].concat(CAT.bets.filter(b => b <= S.wallet).map(b => `<option value="${b}">Bet ${fmtPts(b)} pts</option>`));
+  $("stakeSel").innerHTML = opts.join("");
+  $("stakeSel").value = String(curStake());
+}
+$("stakeSel").onchange = () => { stakeChoice = +$("stakeSel").value; try { localStorage.setItem("rngdle.stake", stakeChoice); } catch (e) {} renderArcade(); };
+const betBody = extra => ({ bet: curStake() || undefined, ...extra });
+
 /* ---------- arcade menu ---------- */
 let game = "menu";
 const GAMES = [
   { id: "hilo",  ic: "A↑", name: "Higher or Lower", desc: "Guess if the next card is higher or lower. Cash out any time.", live: () => !!S.hilo },
-  { id: "mines", ic: "◆",  name: "Mines", desc: "Flip tiles and dodge 3 hidden mines. Each safe tile grows the pot.", live: () => !!S.mines },
+  { id: "mines", ic: "◆",  name: "Mines", desc: "Flip tiles and dodge 1 to 10 hidden mines. More mines, bigger multipliers.", live: () => !!S.mines },
   { id: "slots", ic: "7",  name: "Slots", desc: "Spin three reels. Pairs, straights and triples pay.", live: () => false },
-  { id: "pick",  ic: "#",  name: "Pick a Digit", desc: "Guess the digit 0 to 9. Exact pays ×8, one away gets your 300 back.", live: () => false },
+  { id: "pick",  ic: "#",  name: "Pick a Digit", desc: "Guess the digit 0 to 9. Classic pays close guesses. Sniper only pays exact, but more.", live: () => false },
 ];
 function openGame(id) { game = id; renderArcade(); }
 function renderArcade() {
-  $("hlTickets").innerHTML = `Tickets: ${S.tickets} of ${S.ticketCap}${S.nextTicketAt ? ` · next in <span id="ticketWait">${fmtWait(S.nextTicketAt - now())}</span>` : ""} · each game uses 1`;
+  $("hlTickets").innerHTML = `Tickets: ${S.tickets} of ${S.ticketCap}${S.nextTicketAt ? ` · next in <span id="ticketWait">${countdown(S.nextTicketAt - now())}</span>` : ""} · refills with your rolls`;
+  const inGame = (game === "hilo" && S.hilo) || (game === "mines" && S.mines);
+  $("stakeRow").hidden = game === "menu" || !!inGame;
+  if (!$("stakeRow").hidden) renderStake();
   const g = GAMES.find(x => x.id === game);
   $("arcadeTitle").textContent = g ? g.name : "Arcade";
   $("arcadeBack").hidden = !g;
@@ -687,42 +743,48 @@ function renderHilo(flip) {
   if (g) {
     $("hlCard").textContent = RANK(g.card); if (flip) { $("hlCard").classList.remove("flip"); void $("hlCard").offsetWidth; $("hlCard").classList.add("flip"); }
     $("hlNext").textContent = "?";
-    $("hlPot").innerHTML = `${fmt(g.pot)} points in the pot<small>Round ${g.round} of ${CAT.hilo.maxRounds}. Is the next card higher or lower? Ties keep going.</small>`;
+    $("hlPot").innerHTML = `${fmtPts(g.pot)} points in the pot<small>Round ${g.round} of ${CAT.hilo.maxRounds}. Is the next card higher or lower? Ties keep going.</small>`;
     const hi = g.odds.hi, lo = g.odds.lo;
-    $("hlActions").innerHTML = `<button id="hlHi" ${hi ? "" : "disabled"}>Higher <b>${hi ? fmtMult(hi) : "—"}</b></button><button id="hlLo" ${lo ? "" : "disabled"}>Lower <b>${lo ? fmtMult(lo) : "—"}</b></button>${g.round > 0 ? `<button class="primary" id="hlCash">Cash out ${fmt(g.pot)}</button>` : ""}`;
+    $("hlActions").innerHTML = `<button id="hlHi" ${hi ? "" : "disabled"}>Higher <b>${hi ? fmtMult(hi) : "—"}</b></button><button id="hlLo" ${lo ? "" : "disabled"}>Lower <b>${lo ? fmtMult(lo) : "—"}</b></button>${g.round > 0 ? `<button class="primary" id="hlCash">Cash out ${fmtPts(g.pot)}</button>` : ""}`;
     $("hlHi").onclick = () => hiloGuess("hi"); $("hlLo").onclick = () => hiloGuess("lo");
     if ($("hlCash")) $("hlCash").onclick = hiloCash;
   } else {
     $("hlCard").textContent = "?"; $("hlNext").textContent = "?";
-    $("hlPot").innerHTML = `Start with ${fmt(CAT.hilo.start)} points<small>Guess right to grow the pot. Guess wrong and it's gone.</small>`;
+    $("hlPot").innerHTML = `Start with ${fmtPts(stakeAmount())} points<small>Guess right to grow the pot. Guess wrong and it's gone.</small>`;
     $("hlActions").innerHTML = `<button class="primary" id="hlStart" ${S.tickets >= 1 ? "" : "disabled"}>Play (uses 1 ticket)</button>`;
     $("hlStart").onclick = hiloStart;
   }
 }
 function hlMsg(t, kind) { $("hlMsg").className = "msg" + (kind ? " " + kind : ""); $("hlMsg").textContent = t; }
-async function hiloStart() { try { await api("/api/hilo/start", {}); hlMsg(""); renderArcade(); renderHilo(true); renderStatsAndShop(); } catch (e) { hlMsg(e.message, "bad"); renderArcade(); } }
+async function hiloStart() { try { await api("/api/hilo/start", betBody()); hlMsg(""); renderArcade(); renderHilo(true); renderStatsAndShop(); } catch (e) { hlMsg(e.message, "bad"); renderArcade(); } }
 async function hiloGuess(dir) {
   $("hlActions").querySelectorAll("button").forEach(b => b.disabled = true);
   let data;
   try { data = await api("/api/hilo/guess", { dir }); } catch (e) { hlMsg(e.message, "bad"); renderHilo(); return; }
   const g = data.guess;
   $("hlNext").textContent = RANK(g.card); $("hlNext").classList.remove("ghost");
-  if (g.result === "lose") { hlMsg(`It was ${RANK(g.card)}. You lost ${fmt(g.lost)} points.`, "bad"); }
+  showUps(g.ups);
+  if (g.result === "lose") { hlMsg(`It was ${RANK(g.card)}. You lost ${fmtPts(g.lost)} points.`, "bad"); }
   else if (g.result === "tie") { hlMsg(`It was ${RANK(g.card)} too. Tie, guess again.`); }
-  else if (g.autoCash) { hlMsg(`It was ${RANK(g.card)}! Ten in a row, ${fmt(g.autoCash)} points banked.`, "good"); }
+  else if (g.autoCash) { hlMsg(`It was ${RANK(g.card)}! Ten in a row, ${fmtPts(g.autoCash)} points banked.`, "good"); }
   else { hlMsg(`It was ${RANK(g.card)}! Right.`, "good"); }
   setTimeout(() => { $("hlNext").classList.add("ghost"); renderArcade(); renderHilo(true); renderStatsAndShop(); }, 900);
 }
 async function hiloCash() {
-  try { const d = await api("/api/hilo/cashout", {}); hlMsg(`Banked ${fmt(d.won)} points.`, "good"); } catch (e) { hlMsg(e.message, "bad"); }
+  try { const d = await api("/api/hilo/cashout", {}); hlMsg(`Banked ${fmtPts(d.won)} points.`, "good"); showUps(d.ups); } catch (e) { hlMsg(e.message, "bad"); }
   renderArcade(); renderStatsAndShop();
 }
 
 /* ---------- mines ---------- */
 let mnShow = null; // bombs to show after a game ends
 function mnMsg(t, kind) { $("mnMsg").className = "msg" + (kind ? " " + kind : ""); $("mnMsg").textContent = t; }
+let mnCount = 3;
+try { mnCount = Math.min(10, Math.max(1, +localStorage.getItem("rngdle.mines") || 3)); } catch (e) {}
+$("mnCount").innerHTML = Array.from({ length: 10 }, (_, i) => `<option value="${i + 1}">${i + 1} mine${i ? "s" : ""}</option>`).join("");
+$("mnCount").onchange = () => { mnCount = +$("mnCount").value; try { localStorage.setItem("rngdle.mines", mnCount); } catch (e) {} renderMines(); };
 function renderMines() {
   const g = S.mines, n = CAT.mines.tiles;
+  $("mnCountRow").hidden = !!g; $("mnCount").value = String(mnCount);
   const revealed = g ? g.revealed : (mnShow ? mnShow.revealed : []), bombs = mnShow ? mnShow.bombs : [];
   $("mnGrid").innerHTML = Array.from({ length: n }, (_, i) => {
     const safe = revealed.includes(i), bomb = bombs.includes(i);
@@ -730,30 +792,32 @@ function renderMines() {
   }).join("");
   $("mnGrid").querySelectorAll("[data-tile]").forEach(b => b.onclick = () => minesPick(+b.dataset.tile));
   if (g) {
-    $("mnPot").innerHTML = `${fmt(g.pot)} points in the pot<small>${g.revealed.length} safe so far. Next safe tile pays ${fmtMult(g.next)}.</small>`;
-    $("mnActions").innerHTML = g.revealed.length ? `<button class="primary" id="mnCash">Cash out ${fmt(g.pot)}</button>` : "";
+    $("mnPot").innerHTML = `${fmtPts(g.pot)} points in the pot<small>${g.count} mine${g.count > 1 ? "s" : ""}. ${g.revealed.length} safe so far. Next safe tile pays ${fmtMult(g.next)}.</small>`;
+    $("mnActions").innerHTML = g.revealed.length ? `<button class="primary" id="mnCash">Cash out ${fmtPts(g.pot)}</button>` : "";
     if ($("mnCash")) $("mnCash").onclick = minesCash;
   } else {
-    $("mnPot").innerHTML = `Start with ${fmt(CAT.mines.start)} points<small>${CAT.mines.count} of the ${n} tiles are mines. Hit one and the pot is gone.</small>`;
+    const first = 0.97 * n / (n - mnCount);
+    $("mnPot").innerHTML = `Start with ${fmtPts(stakeAmount())} points<small>${mnCount} of the ${n} tiles ${mnCount > 1 ? "are mines" : "is a mine"}. The first safe tile pays ${fmtMult(first)}. Hit a mine and the pot is gone.</small>`;
     $("mnActions").innerHTML = `<button class="primary" id="mnStart" ${S.tickets >= 1 ? "" : "disabled"}>${mnShow ? "Play again" : "Play"} (1 ticket)</button>`;
     $("mnStart").onclick = minesStart;
   }
 }
-async function minesStart() { try { await api("/api/mines/start", {}); mnShow = null; mnMsg(""); } catch (e) { mnMsg(e.message, "bad"); } renderArcade(); renderStatsAndShop(); }
+async function minesStart() { try { await api("/api/mines/start", betBody({ count: mnCount })); mnShow = null; mnMsg(""); } catch (e) { mnMsg(e.message, "bad"); } renderArcade(); renderStatsAndShop(); }
 async function minesPick(tile) {
   $("mnGrid").querySelectorAll("button").forEach(b => b.disabled = true);
   const before = S.mines ? S.mines.revealed.slice() : [];
   let d;
   try { d = await api("/api/mines/pick", { tile }); } catch (e) { mnMsg(e.message, "bad"); renderArcade(); return; }
   const p = d.pick;
-  if (p.result === "boom") { mnShow = { revealed: before, bombs: p.bombs }; mnMsg(`Boom! You lost ${fmt(p.lost)} points.`, "bad"); }
-  else if (p.result === "clear") { mnShow = { revealed: before.concat(tile), bombs: p.bombs }; mnMsg(`Board cleared! ${fmt(p.won)} points banked.`, "good"); }
+  showUps(p.ups);
+  if (p.result === "boom") { mnShow = { revealed: before, bombs: p.bombs }; mnMsg(`Boom! You lost ${fmtPts(p.lost)} points.`, "bad"); }
+  else if (p.result === "clear") { mnShow = { revealed: before.concat(tile), bombs: p.bombs }; mnMsg(`Board cleared! ${fmtPts(p.won)} points banked.`, "good"); }
   else mnMsg("Safe!", "good");
   renderArcade(); renderStatsAndShop();
 }
 async function minesCash() {
   const g = S.mines;
-  try { const d = await api("/api/mines/cashout", {}); mnShow = { revealed: g.revealed, bombs: [] }; mnMsg(`Banked ${fmt(d.won)} points.`, "good"); } catch (e) { mnMsg(e.message, "bad"); }
+  try { const d = await api("/api/mines/cashout", {}); mnShow = { revealed: g.revealed, bombs: [] }; mnMsg(`Banked ${fmtPts(d.won)} points.`, "good"); showUps(d.ups); } catch (e) { mnMsg(e.message, "bad"); }
   renderArcade(); renderStatsAndShop();
 }
 
@@ -761,7 +825,7 @@ async function minesCash() {
 let slBusy = false;
 function slMsg(t, kind) { $("slMsg").className = "msg" + (kind ? " " + kind : ""); $("slMsg").textContent = t; }
 function renderSlots() {
-  $("slPays").innerHTML = CAT.slots.pays.map(([n, m]) => `<span>${n}</span><b>${fmt(CAT.slots.bet * m)}</b>`).join("");
+  $("slPays").innerHTML = CAT.slots.pays.map(([n, m]) => `<span>${n} (×${m})</span><b>${fmtPts(stakeAmount() * m)}</b>`).join("");
   $("slSpin").disabled = slBusy || S.tickets < 1;
 }
 $("slSpin").onclick = async () => {
@@ -771,13 +835,14 @@ $("slSpin").onclick = async () => {
   reels.forEach(r => { r.classList.remove("win"); r.classList.add("spin"); });
   const timer = setInterval(() => reels.forEach(r => { if (r.classList.contains("spin")) r.textContent = Math.floor(Math.random() * 10); }), 60);
   let d;
-  try { d = await api("/api/slots/spin", {}); } catch (e) { clearInterval(timer); reels.forEach(r => r.classList.remove("spin")); slBusy = false; slMsg(e.message, "bad"); renderArcade(); return; }
+  try { d = await api("/api/slots/spin", betBody()); } catch (e) { clearInterval(timer); reels.forEach(r => r.classList.remove("spin")); slBusy = false; slMsg(e.message, "bad"); renderArcade(); return; }
   const sp = d.spin, wait = reduce ? 0 : 500;
   reels.forEach((r, i) => setTimeout(() => {
     r.classList.remove("spin"); r.textContent = sp.reels[i];
     if (i === 2) {
       clearInterval(timer); slBusy = false;
-      if (sp.won) { reels.forEach(x => x.classList.add("win")); slMsg(`${sp.label}! You won ${fmt(sp.won)} points.`, "good"); }
+      showUps(sp.ups);
+      if (sp.won) { reels.forEach(x => x.classList.add("win")); slMsg(`${sp.label}! You won ${fmtPts(sp.won)} points.`, "good"); }
       else slMsg("No match. Try again.");
       renderArcade(); renderStatsAndShop();
     }
@@ -787,8 +852,15 @@ $("slSpin").onclick = async () => {
 /* ---------- pick a digit ---------- */
 function pkMsg(t, kind) { $("pkMsg").className = "msg" + (kind ? " " + kind : ""); $("pkMsg").textContent = t; }
 let pkBusy = false;
+let pkMode = "classic";
+try { pkMode = localStorage.getItem("rngdle.pick") === "sniper" ? "sniper" : "classic"; } catch (e) {}
+$("pkMode").querySelectorAll("button").forEach(b => b.onclick = () => { pkMode = b.dataset.mode; try { localStorage.setItem("rngdle.pick", pkMode); } catch (e) {} renderPick(); });
 function renderPick() {
-  $("pkInfo").innerHTML = `Pick a digit<small>Exact pays ${fmt(CAT.pick.bet * CAT.pick.exact)}. One away pays ${fmt(CAT.pick.bet * CAT.pick.close)}. 9 and 0 count as neighbors.</small>`;
+  const m = CAT.pick[pkMode], st = stakeAmount();
+  $("pkMode").querySelectorAll("button").forEach(b => b.setAttribute("aria-pressed", b.dataset.mode === pkMode));
+  $("pkInfo").innerHTML = pkMode === "sniper"
+    ? `Sniper<small>Only an exact guess pays: ${fmtPts(Math.floor(st * m.exact))} (×${m.exact}).</small>`
+    : `Classic<small>Exact pays ${fmtPts(Math.floor(st * m.exact))} (×${m.exact}). One away pays ${fmtPts(Math.floor(st * m.close))} (×${m.close}). 9 and 0 count as neighbors.</small>`;
   $("pkDigits").innerHTML = Array.from({ length: 10 }, (_, i) => `<button data-d="${i}" ${pkBusy || S.tickets < 1 ? "disabled" : ""}>${i}</button>`).join("");
   $("pkDigits").querySelectorAll("[data-d]").forEach(b => b.onclick = () => pickPlay(+b.dataset.d));
 }
@@ -799,11 +871,12 @@ async function pickPlay(digit) {
   const r = $("pkRoll"); r.classList.remove("win"); r.classList.add("spin");
   const timer = setInterval(() => { r.textContent = Math.floor(Math.random() * 10); }, 60);
   let d;
-  try { d = await api("/api/pick/play", { digit }); } catch (e) { clearInterval(timer); r.classList.remove("spin"); pkBusy = false; pkMsg(e.message, "bad"); renderArcade(); return; }
+  try { d = await api("/api/pick/play", betBody({ digit, mode: pkMode })); } catch (e) { clearInterval(timer); r.classList.remove("spin"); pkBusy = false; pkMsg(e.message, "bad"); renderArcade(); return; }
   setTimeout(() => {
     clearInterval(timer); r.classList.remove("spin"); r.textContent = d.pick.roll; pkBusy = false;
-    if (d.pick.result === "exact") { r.classList.add("win"); pkMsg(`It was ${d.pick.roll}! You won ${fmt(d.pick.won)} points.`, "good"); }
-    else if (d.pick.result === "close") pkMsg(`It was ${d.pick.roll}. One away, you get ${fmt(d.pick.won)} back.`);
+    showUps(d.pick.ups);
+    if (d.pick.result === "exact") { r.classList.add("win"); pkMsg(`It was ${d.pick.roll}! You won ${fmtPts(d.pick.won)} points.`, "good"); }
+    else if (d.pick.result === "close") pkMsg(`It was ${d.pick.roll}. One away, you get ${fmtPts(d.pick.won)}.`);
     else pkMsg(`It was ${d.pick.roll}. No win this time.`, "bad");
     renderArcade(); renderStatsAndShop();
     $("pkDigits").querySelectorAll("button").forEach(b => b.classList.toggle("picked", +b.dataset.d === digit));
@@ -832,6 +905,16 @@ function renderShop() {
       : `<button class="buy ${on ? "on" : ""}" data-wear="${c.id}">${on ? "Take off" : "Wear"}</button>`;
     return `<div class="charm${on ? " worn" : ""}${own ? "" : " locked"}"><div class="sym">${c.sym}</div><div class="kind k-${c.kind.toLowerCase()}">${c.kind}</div><div class="charm-name">${esc(c.name)}</div><div class="charm-desc">${esc(c.desc)}</div>${on ? `<div class="worn-tag">Wearing</div>` : ""}${btn}</div>`;
   }).join("");
+  const maxed = CAT.upgrades.filter(u => (S.owned[u.id] || 0) >= u.prices.length).length;
+  if (!S.vaultOpen) {
+    $("vault").innerHTML = `<h3>🔒 The Vault <span class="ct">${maxed} / ${CAT.upgrades.length} upgrades maxed</span></h3><p class="note">Max every upgrade above to open the Vault, a second shop paid in gold. It has upgrades with up to 100 levels each. You have <span class="gold">${fmtPts(S.gold)} gold</span> saved for it.</p>`;
+  } else {
+    $("vault").innerHTML = `<h3>The Vault <span class="gold">${fmtPts(S.gold)} gold</span></h3><p class="note">Gold comes from rare badges and level-ups. These upgrades go very deep.</p><div class="ups">${CAT.vault.map(v => {
+      const L = S.vault[v.id] || 0, done = L >= v.max, cost = v.costs[L];
+      return `<div class="up"><div class="up-main"><div class="up-name">${esc(v.name)} <span class="xptext">Lv ${L} / ${v.max}</span></div><div class="up-now">Now: ${esc(v.levels[L])}</div>${done ? "" : `<div class="up-next">Next: ${esc(v.levels[L + 1])}</div>`}</div>${done ? `<span class="maxed">Maxed</span>` : `<button class="buy" data-vault="${v.id}" ${S.gold < cost ? "disabled" : ""}>Buy for ${fmtPts(cost)} gold</button>`}</div>`;
+    }).join("")}</div>`;
+  }
+  document.querySelectorAll("[data-vault]").forEach(b => b.onclick = () => shopAction("/api/buy", { kind: "vault", id: b.dataset.vault }));
   document.querySelectorAll("[data-up]").forEach(b => b.onclick = () => shopAction("/api/buy", { kind: "upgrade", id: b.dataset.up }));
   document.querySelectorAll("[data-buy]").forEach(b => b.onclick = () => shopAction("/api/buy", { kind: "charm", id: b.dataset.buy }));
   document.querySelectorAll("[data-wear]").forEach(b => b.onclick = () => shopAction("/api/wear", { id: S.wear === b.dataset.wear ? null : b.dataset.wear }));
@@ -842,21 +925,23 @@ async function loadLeaderboard() {
   try { const r = await fetch("/api/leaderboard", { credentials: "same-origin" }); if (r.ok) { lbData = await r.json(); renderLeaderboard(); } } catch (e) {}
 }
 function renderLeaderboard() {
-  $("lbBest").setAttribute("aria-pressed", lbTab === "best"); $("lbEarned").setAttribute("aria-pressed", lbTab === "earned");
+  $("lbBest").setAttribute("aria-pressed", lbTab === "best"); $("lbEarned").setAttribute("aria-pressed", lbTab === "earned"); $("lbLevel").setAttribute("aria-pressed", lbTab === "level");
   if (!lbData) { $("lb").innerHTML = `<li class="empty" style="display:block">Loading…</li>`; return; }
-  const rows = lbData[lbTab];
+  const rows = lbData[lbTab] || [];
   $("lb").innerHTML = rows.length ? rows.map((r, i) => {
     const me = S && r.name.toLowerCase() === S.name.toLowerCase();
-    const score = lbTab === "best" ? fullNum(r.best.lg) : fmtPts(r.earned);
+    const score = lbTab === "best" ? fullNum(r.best.lg) : lbTab === "level" ? `Level ${r.level}` : fmtPts(r.earned);
     const sub = lbTab === "best" ? `rolled ${fmtS(r.best.s)}` : `${fmt(r.rolls)} rolls`;
     return `<li class="${me ? "me" : ""}"><span class="rk">${i + 1}</span><span class="nm">${esc(r.name)} <small>${sub}</small></span><span class="sc">${score}</span></li>`;
   }).join("") : `<li class="empty" style="display:block">No rolls yet. Be the first.</li>`;
 }
 $("lbBest").onclick = () => { lbTab = "best"; renderLeaderboard(); };
 $("lbEarned").onclick = () => { lbTab = "earned"; renderLeaderboard(); };
+$("lbLevel").onclick = () => { lbTab = "level"; renderLeaderboard(); };
 
 /* ---------- stats, collection, history ---------- */
 function renderStatsAndShop() {
+  renderLevel();
   $("sStreak").textContent = S.streak;
   $("sRolls").textContent = fmt(S.totalRolls);
   $("sBest").textContent = S.best ? fullNum(S.best.lg) : "0";
@@ -907,19 +992,32 @@ $("resetYes").onclick = async () => {
   renderAll(); loadLeaderboard(); window.scrollTo({ top: 0, behavior: "smooth" });
 };
 
-function renderAll() { if (!S) return; if (!busy) renderTicket(); renderWheel(); if (!slBusy && !pkBusy) renderArcade(); renderStatsAndShop(); renderCollection(); renderHistory(); renderLeaderboard(); }
+function renderAll() { if (!S) return; renderLevel(); if (!busy) renderTicket(); renderWheel(); if (!slBusy && !pkBusy) renderArcade(); renderStatsAndShop(); renderCollection(); renderHistory(); renderLeaderboard(); }
 
 /* ---------- timers ---------- */
-let refreshing = false;
-setInterval(async () => {
-  if (!S || $("gameView").hidden) return;
-  const t = now();
-  if ($("rollWait") && S.nextChargeAt) $("rollWait").textContent = fmtWait(S.nextChargeAt - t);
-  if ($("wheelWait")) $("wheelWait").textContent = fmtWait(S.wheelReadyAt - t);
-  if ($("ticketWait") && S.nextTicketAt) $("ticketWait").textContent = fmtWait(S.nextTicketAt - t);
-  const due = (S.nextChargeAt && t >= S.nextChargeAt) || (S.nextTicketAt && t >= S.nextTicketAt) || (t >= S.wheelReadyAt && $("spinBtn").disabled && !busy);
-  if (due && !busy && !refreshing) { refreshing = true; try { await api("/api/me"); renderAll(); } catch (e) {} refreshing = false; }
+// countdowns tick every second. At 0:00 the page asks the server for the new roll.
+// A sleeping free server can take up to a minute to answer, so say so instead of sitting on 0:00.
+let refreshing = false, lastRefresh = 0;
+const countdown = ms => ms > 0 ? fmtWait(ms) : "a few seconds (waking the server)";
+async function refreshState() {
+  if (refreshing || busy) return;
+  refreshing = true; lastRefresh = Date.now();
+  try { await api("/api/me"); if (!busy) renderAll(); } catch (e) {}
+  refreshing = false;
+}
+setInterval(() => {
+  try {
+    if (!S || $("gameView").hidden) return;
+    const t = now();
+    if (S.nextChargeAt) ["rollWait", "rollWait2"].forEach(id => { if ($(id)) $(id).textContent = countdown(S.nextChargeAt - t); });
+    if ($("wheelWait")) $("wheelWait").textContent = countdown(S.wheelReadyAt - t);
+    if ($("ticketWait") && S.nextTicketAt) $("ticketWait").textContent = countdown(S.nextTicketAt - t);
+    const due = (S.nextChargeAt && t >= S.nextChargeAt) || (S.nextTicketAt && t >= S.nextTicketAt) || (t >= S.wheelReadyAt && $("spinBtn").disabled && !busy);
+    if (due && Date.now() - lastRefresh > 4000) refreshState();
+  } catch (e) { console.error(e); }
 }, 1000);
+// coming back to the tab or waking the computer: get fresh timers from the server
+document.addEventListener("visibilitychange", () => { if (!document.hidden && S && !$("gameView").hidden) refreshState(); });
 setInterval(() => { if (S && !$("gameView").hidden && !busy) loadLeaderboard(); }, 60000);
 
 /* ---------- start ---------- */
