@@ -234,6 +234,32 @@ button.danger { border-color: #C2412D; background: #C2412D; color: #fff; }
 .lb .nm small { font-weight: 400; color: var(--muted); font-family: var(--f-mono); }
 .hist li { grid-template-columns: 96px minmax(0, 1fr) minmax(0, 40%); }
 .kind.k-luck { color: var(--t-uncommon); } .kind.k-time { color: var(--accent); }
+/* arcade */
+.arcade-head { display: flex; align-items: center; gap: 10px; }
+.arcade-head .back { padding: 5px 10px; font-size: .8rem; }
+.arcade-menu { display: grid; gap: 8px; }
+.gamecard { display: grid; grid-template-columns: 40px minmax(0, 1fr); gap: 2px 12px; align-items: center; text-align: left; padding: 10px 12px; border: 1.5px solid var(--line); border-radius: 12px; background: var(--paper); color: var(--ink); font-weight: 400; }
+.gamecard:hover { border-color: var(--accent); filter: none; }
+.gamecard .ic { grid-row: span 2; font-family: var(--f-display); font-weight: 800; font-size: 1.5rem; color: var(--accent); text-align: center; }
+.gamecard .gn { font-weight: 600; display: flex; gap: 8px; align-items: baseline; flex-wrap: wrap; }
+.gamecard .gn em { font-style: normal; font-size: .7rem; text-transform: uppercase; letter-spacing: .07em; color: var(--hot); font-weight: 600; }
+.gamecard .gd { font-size: .8rem; color: var(--muted); }
+.game { display: grid; gap: 12px; }
+.mines { display: grid; grid-template-columns: repeat(4, 1fr); gap: 6px; width: min(240px, 100%); margin: 0 auto; }
+.tile { aspect-ratio: 1; padding: 0; border-radius: 8px; border: 1.5px solid var(--line); background: var(--paper); font-family: var(--f-display); font-weight: 800; font-size: 1.1rem; color: var(--ink); }
+.tile:hover:not(:disabled) { border-color: var(--accent); }
+.tile.safe { background: var(--t-bg); border-color: var(--t-uncommon); color: var(--t-uncommon); }
+.tile.bomb { background: var(--danger); border-color: var(--danger); color: var(--accent-ink); }
+.tile:disabled { opacity: 1; cursor: default; }
+.reels { display: flex; justify-content: center; gap: 8px; }
+.reel { width: 58px; height: 72px; border-radius: 10px; border: 2px solid var(--ink); background: var(--paper); display: grid; place-items: center; font-family: var(--f-mono); font-weight: 600; font-size: 2rem; font-variant-numeric: tabular-nums; }
+.reel.spin { color: var(--muted); }
+.reel.win { border-color: var(--t-uncommon); color: var(--t-uncommon); }
+.paytable { display: grid; grid-template-columns: 1fr auto; gap: 2px 12px; font-size: .8rem; color: var(--muted); max-width: 240px; margin: 0 auto; width: 100%; }
+.paytable b { font-family: var(--f-mono); font-weight: 500; color: var(--ink); text-align: right; }
+.digits { display: grid; grid-template-columns: repeat(5, 1fr); gap: 6px; width: min(260px, 100%); margin: 0 auto; }
+.digits button { padding: 10px 0; font-family: var(--f-mono); font-size: 1.1rem; }
+.digits button.picked { border-color: var(--accent); color: var(--accent); }
 .lb .sc { font-family: var(--f-mono); font-size: .8rem; text-align: right; overflow-wrap: anywhere; }
 </style>
 
@@ -282,12 +308,33 @@ button.danger { border-color: #C2412D; background: #C2412D; color: #fff; }
       <div class="msg" id="wheelMsg"></div>
     </section>
     <section class="panel">
-      <h2>Higher or Lower</h2>
+      <div class="arcade-head"><button class="ghost back" id="arcadeBack" hidden>← Games</button><h2 id="arcadeTitle">Arcade</h2></div>
       <div class="sub" id="hlTickets"></div>
-      <div class="cards"><div class="card" id="hlCard">?</div><div class="card ghost" id="hlNext">?</div></div>
-      <div class="pot" id="hlPot"></div>
-      <div class="hl-actions" id="hlActions"></div>
-      <div class="msg" id="hlMsg"></div>
+      <div class="arcade-menu" id="arcadeMenu"></div>
+      <div class="game" id="gameHilo" hidden>
+        <div class="cards"><div class="card" id="hlCard">?</div><div class="card ghost" id="hlNext">?</div></div>
+        <div class="pot" id="hlPot"></div>
+        <div class="hl-actions" id="hlActions"></div>
+        <div class="msg" id="hlMsg"></div>
+      </div>
+      <div class="game" id="gameMines" hidden>
+        <div class="mines" id="mnGrid"></div>
+        <div class="pot" id="mnPot"></div>
+        <div class="hl-actions" id="mnActions"></div>
+        <div class="msg" id="mnMsg"></div>
+      </div>
+      <div class="game" id="gameSlots" hidden>
+        <div class="reels" id="slReels"><div class="reel">7</div><div class="reel">7</div><div class="reel">7</div></div>
+        <div class="paytable" id="slPays"></div>
+        <div class="hl-actions"><button class="primary" id="slSpin">Spin (1 ticket)</button></div>
+        <div class="msg" id="slMsg"></div>
+      </div>
+      <div class="game" id="gamePick" hidden>
+        <div class="pot" id="pkInfo"></div>
+        <div class="digits" id="pkDigits"></div>
+        <div class="reels"><div class="reel" id="pkRoll">?</div></div>
+        <div class="msg" id="pkMsg"></div>
+      </div>
     </section>
   </div>
 
@@ -604,11 +651,39 @@ $("spinBtn").onclick = async () => {
   }, reduce ? 50 : 4100);
 };
 
+/* ---------- arcade menu ---------- */
+let game = "menu";
+const GAMES = [
+  { id: "hilo",  ic: "A↑", name: "Higher or Lower", desc: "Guess if the next card is higher or lower. Cash out any time.", live: () => !!S.hilo },
+  { id: "mines", ic: "◆",  name: "Mines", desc: "Flip tiles and dodge 3 hidden mines. Each safe tile grows the pot.", live: () => !!S.mines },
+  { id: "slots", ic: "7",  name: "Slots", desc: "Spin three reels. Pairs, straights and triples pay.", live: () => false },
+  { id: "pick",  ic: "#",  name: "Pick a Digit", desc: "Guess the digit 0 to 9. Exact pays ×8, one away gets your 300 back.", live: () => false },
+];
+function openGame(id) { game = id; renderArcade(); }
+function renderArcade() {
+  $("hlTickets").innerHTML = `Tickets: ${S.tickets} of ${S.ticketCap}${S.nextTicketAt ? ` · next in <span id="ticketWait">${fmtWait(S.nextTicketAt - now())}</span>` : ""} · each game uses 1`;
+  const g = GAMES.find(x => x.id === game);
+  $("arcadeTitle").textContent = g ? g.name : "Arcade";
+  $("arcadeBack").hidden = !g;
+  $("arcadeMenu").hidden = !!g;
+  ["hilo", "mines", "slots", "pick"].forEach(id => { $("game" + id[0].toUpperCase() + id.slice(1)).hidden = game !== id; });
+  if (!g) {
+    $("arcadeMenu").innerHTML = GAMES.map(x => `<button class="gamecard" data-game="${x.id}"><span class="ic">${x.ic}</span><span class="gn">${x.name}${x.live() ? " <em>In progress</em>" : ""}</span><span class="gd">${x.desc}</span></button>`).join("");
+    $("arcadeMenu").querySelectorAll("[data-game]").forEach(b => b.onclick = () => openGame(b.dataset.game));
+    return;
+  }
+  if (game === "hilo") renderHilo();
+  if (game === "mines") renderMines();
+  if (game === "slots") renderSlots();
+  if (game === "pick") renderPick();
+}
+$("arcadeBack").onclick = () => openGame("menu");
+
 /* ---------- higher or lower ---------- */
 const RANK = c => ({ 1: "A", 11: "J", 12: "Q", 13: "K" })[c] || String(c);
 function renderHilo(flip) {
   const g = S.hilo;
-  $("hlTickets").innerHTML = `Tickets: ${S.tickets} of ${S.ticketCap}${S.nextTicketAt ? ` · next in <span id="ticketWait">${fmtWait(S.nextTicketAt - now())}</span>` : ""}`;
+  if (game !== "hilo") return;
   if (g) {
     $("hlCard").textContent = RANK(g.card); if (flip) { $("hlCard").classList.remove("flip"); void $("hlCard").offsetWidth; $("hlCard").classList.add("flip"); }
     $("hlNext").textContent = "?";
@@ -625,7 +700,7 @@ function renderHilo(flip) {
   }
 }
 function hlMsg(t, kind) { $("hlMsg").className = "msg" + (kind ? " " + kind : ""); $("hlMsg").textContent = t; }
-async function hiloStart() { try { await api("/api/hilo/start", {}); hlMsg(""); renderHilo(true); renderStatsAndShop(); } catch (e) { hlMsg(e.message, "bad"); renderHilo(); } }
+async function hiloStart() { try { await api("/api/hilo/start", {}); hlMsg(""); renderArcade(); renderHilo(true); renderStatsAndShop(); } catch (e) { hlMsg(e.message, "bad"); renderArcade(); } }
 async function hiloGuess(dir) {
   $("hlActions").querySelectorAll("button").forEach(b => b.disabled = true);
   let data;
@@ -636,11 +711,103 @@ async function hiloGuess(dir) {
   else if (g.result === "tie") { hlMsg(`It was ${RANK(g.card)} too. Tie, guess again.`); }
   else if (g.autoCash) { hlMsg(`It was ${RANK(g.card)}! Ten in a row, ${fmt(g.autoCash)} points banked.`, "good"); }
   else { hlMsg(`It was ${RANK(g.card)}! Right.`, "good"); }
-  setTimeout(() => { $("hlNext").classList.add("ghost"); renderHilo(true); renderStatsAndShop(); }, 900);
+  setTimeout(() => { $("hlNext").classList.add("ghost"); renderArcade(); renderHilo(true); renderStatsAndShop(); }, 900);
 }
 async function hiloCash() {
   try { const d = await api("/api/hilo/cashout", {}); hlMsg(`Banked ${fmt(d.won)} points.`, "good"); } catch (e) { hlMsg(e.message, "bad"); }
-  renderHilo(); renderStatsAndShop();
+  renderArcade(); renderStatsAndShop();
+}
+
+/* ---------- mines ---------- */
+let mnShow = null; // bombs to show after a game ends
+function mnMsg(t, kind) { $("mnMsg").className = "msg" + (kind ? " " + kind : ""); $("mnMsg").textContent = t; }
+function renderMines() {
+  const g = S.mines, n = CAT.mines.tiles;
+  const revealed = g ? g.revealed : (mnShow ? mnShow.revealed : []), bombs = mnShow ? mnShow.bombs : [];
+  $("mnGrid").innerHTML = Array.from({ length: n }, (_, i) => {
+    const safe = revealed.includes(i), bomb = bombs.includes(i);
+    return `<button class="tile${safe ? " safe" : ""}${bomb ? " bomb" : ""}" data-tile="${i}" ${g && !safe ? "" : "disabled"} aria-label="Tile ${i + 1}">${bomb ? "✸" : safe ? "◆" : ""}</button>`;
+  }).join("");
+  $("mnGrid").querySelectorAll("[data-tile]").forEach(b => b.onclick = () => minesPick(+b.dataset.tile));
+  if (g) {
+    $("mnPot").innerHTML = `${fmt(g.pot)} points in the pot<small>${g.revealed.length} safe so far. Next safe tile pays ${fmtMult(g.next)}.</small>`;
+    $("mnActions").innerHTML = g.revealed.length ? `<button class="primary" id="mnCash">Cash out ${fmt(g.pot)}</button>` : "";
+    if ($("mnCash")) $("mnCash").onclick = minesCash;
+  } else {
+    $("mnPot").innerHTML = `Start with ${fmt(CAT.mines.start)} points<small>${CAT.mines.count} of the ${n} tiles are mines. Hit one and the pot is gone.</small>`;
+    $("mnActions").innerHTML = `<button class="primary" id="mnStart" ${S.tickets >= 1 ? "" : "disabled"}>${mnShow ? "Play again" : "Play"} (1 ticket)</button>`;
+    $("mnStart").onclick = minesStart;
+  }
+}
+async function minesStart() { try { await api("/api/mines/start", {}); mnShow = null; mnMsg(""); } catch (e) { mnMsg(e.message, "bad"); } renderArcade(); renderStatsAndShop(); }
+async function minesPick(tile) {
+  $("mnGrid").querySelectorAll("button").forEach(b => b.disabled = true);
+  const before = S.mines ? S.mines.revealed.slice() : [];
+  let d;
+  try { d = await api("/api/mines/pick", { tile }); } catch (e) { mnMsg(e.message, "bad"); renderArcade(); return; }
+  const p = d.pick;
+  if (p.result === "boom") { mnShow = { revealed: before, bombs: p.bombs }; mnMsg(`Boom! You lost ${fmt(p.lost)} points.`, "bad"); }
+  else if (p.result === "clear") { mnShow = { revealed: before.concat(tile), bombs: p.bombs }; mnMsg(`Board cleared! ${fmt(p.won)} points banked.`, "good"); }
+  else mnMsg("Safe!", "good");
+  renderArcade(); renderStatsAndShop();
+}
+async function minesCash() {
+  const g = S.mines;
+  try { const d = await api("/api/mines/cashout", {}); mnShow = { revealed: g.revealed, bombs: [] }; mnMsg(`Banked ${fmt(d.won)} points.`, "good"); } catch (e) { mnMsg(e.message, "bad"); }
+  renderArcade(); renderStatsAndShop();
+}
+
+/* ---------- slots ---------- */
+let slBusy = false;
+function slMsg(t, kind) { $("slMsg").className = "msg" + (kind ? " " + kind : ""); $("slMsg").textContent = t; }
+function renderSlots() {
+  $("slPays").innerHTML = CAT.slots.pays.map(([n, m]) => `<span>${n}</span><b>${fmt(CAT.slots.bet * m)}</b>`).join("");
+  $("slSpin").disabled = slBusy || S.tickets < 1;
+}
+$("slSpin").onclick = async () => {
+  if (slBusy) return;
+  slBusy = true; $("slSpin").disabled = true; slMsg("");
+  const reels = [...$("slReels").children];
+  reels.forEach(r => { r.classList.remove("win"); r.classList.add("spin"); });
+  const timer = setInterval(() => reels.forEach(r => { if (r.classList.contains("spin")) r.textContent = Math.floor(Math.random() * 10); }), 60);
+  let d;
+  try { d = await api("/api/slots/spin", {}); } catch (e) { clearInterval(timer); reels.forEach(r => r.classList.remove("spin")); slBusy = false; slMsg(e.message, "bad"); renderArcade(); return; }
+  const sp = d.spin, wait = reduce ? 0 : 500;
+  reels.forEach((r, i) => setTimeout(() => {
+    r.classList.remove("spin"); r.textContent = sp.reels[i];
+    if (i === 2) {
+      clearInterval(timer); slBusy = false;
+      if (sp.won) { reels.forEach(x => x.classList.add("win")); slMsg(`${sp.label}! You won ${fmt(sp.won)} points.`, "good"); }
+      else slMsg("No match. Try again.");
+      renderArcade(); renderStatsAndShop();
+    }
+  }, wait * (i + 1)));
+};
+
+/* ---------- pick a digit ---------- */
+function pkMsg(t, kind) { $("pkMsg").className = "msg" + (kind ? " " + kind : ""); $("pkMsg").textContent = t; }
+let pkBusy = false;
+function renderPick() {
+  $("pkInfo").innerHTML = `Pick a digit<small>Exact pays ${fmt(CAT.pick.bet * CAT.pick.exact)}. One away pays ${fmt(CAT.pick.bet * CAT.pick.close)}. 9 and 0 count as neighbors.</small>`;
+  $("pkDigits").innerHTML = Array.from({ length: 10 }, (_, i) => `<button data-d="${i}" ${pkBusy || S.tickets < 1 ? "disabled" : ""}>${i}</button>`).join("");
+  $("pkDigits").querySelectorAll("[data-d]").forEach(b => b.onclick = () => pickPlay(+b.dataset.d));
+}
+async function pickPlay(digit) {
+  if (pkBusy) return;
+  pkBusy = true; pkMsg("");
+  $("pkDigits").querySelectorAll("button").forEach(b => { b.disabled = true; b.classList.toggle("picked", +b.dataset.d === digit); });
+  const r = $("pkRoll"); r.classList.remove("win"); r.classList.add("spin");
+  const timer = setInterval(() => { r.textContent = Math.floor(Math.random() * 10); }, 60);
+  let d;
+  try { d = await api("/api/pick/play", { digit }); } catch (e) { clearInterval(timer); r.classList.remove("spin"); pkBusy = false; pkMsg(e.message, "bad"); renderArcade(); return; }
+  setTimeout(() => {
+    clearInterval(timer); r.classList.remove("spin"); r.textContent = d.pick.roll; pkBusy = false;
+    if (d.pick.result === "exact") { r.classList.add("win"); pkMsg(`It was ${d.pick.roll}! You won ${fmt(d.pick.won)} points.`, "good"); }
+    else if (d.pick.result === "close") pkMsg(`It was ${d.pick.roll}. One away, you get ${fmt(d.pick.won)} back.`);
+    else pkMsg(`It was ${d.pick.roll}. No win this time.`, "bad");
+    renderArcade(); renderStatsAndShop();
+    $("pkDigits").querySelectorAll("button").forEach(b => b.classList.toggle("picked", +b.dataset.d === digit));
+  }, reduce ? 0 : 900);
 }
 
 /* ---------- shop ---------- */
@@ -740,7 +907,7 @@ $("resetYes").onclick = async () => {
   renderAll(); loadLeaderboard(); window.scrollTo({ top: 0, behavior: "smooth" });
 };
 
-function renderAll() { if (!S) return; if (!busy) renderTicket(); renderWheel(); renderHilo(); renderStatsAndShop(); renderCollection(); renderHistory(); renderLeaderboard(); }
+function renderAll() { if (!S) return; if (!busy) renderTicket(); renderWheel(); if (!slBusy && !pkBusy) renderArcade(); renderStatsAndShop(); renderCollection(); renderHistory(); renderLeaderboard(); }
 
 /* ---------- timers ---------- */
 let refreshing = false;

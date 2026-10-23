@@ -203,11 +203,8 @@ function spinWheel(u) {
 
 /* ---------- Higher or Lower minigame: cards A (1) to K (13). A tie keeps going. ---------- */
 function hiloStart(u) {
-  sync(u);
   if (u.hilo) throw new GameError("You already have a game going.");
-  if (u.tickets < 1) throw new GameError("No tickets left. Wait for the next one.");
-  if (u.tickets >= TICKET_CAP) u.lastTicket = Date.now();
-  u.tickets -= 1;
+  takeTicket(u);
   u.hilo = { card: 1 + rand(13), pot: HILO_START, round: 0, last: null };
   return u.hilo;
 }
@@ -232,6 +229,66 @@ function hiloCashOut(u) {
   return g.pot;
 }
 
+/* ---------- Mines: 16 tiles, 3 hidden mines. Each safe tile grows the pot. ---------- */
+const MINES_TILES = 16, MINES_COUNT = 3, MINES_START = 300;
+function takeTicket(u) {
+  sync(u);
+  if (u.tickets < 1) throw new GameError("No tickets left. Wait for the next one.");
+  if (u.tickets >= TICKET_CAP) u.lastTicket = Date.now();
+  u.tickets -= 1;
+}
+function minesNext(g) { const left = MINES_TILES - g.revealed.length, safe = left - MINES_COUNT; return safe > 0 ? 0.97 * left / safe : 0; }
+function minesStart(u) {
+  if (u.mines) throw new GameError("You already have a Mines game going.");
+  takeTicket(u);
+  const spots = new Set(); while (spots.size < MINES_COUNT) spots.add(rand(MINES_TILES));
+  u.mines = { bombs: [...spots], revealed: [], pot: MINES_START };
+  return {};
+}
+function minesPick(u, tile) {
+  const g = u.mines; if (!g) throw new GameError("Start a Mines game first.");
+  if (!Number.isInteger(tile) || tile < 0 || tile >= MINES_TILES) throw new GameError("Pick a tile on the board.");
+  if (g.revealed.includes(tile)) throw new GameError("You already flipped that one.");
+  if (g.bombs.includes(tile)) { u.mines = null; return { result: "boom", tile, bombs: g.bombs, lost: Math.floor(g.pot) }; }
+  g.pot = Math.floor(g.pot * minesNext(g)); g.revealed.push(tile);
+  if (g.revealed.length >= MINES_TILES - MINES_COUNT) { const won = minesCashOut(u); return { result: "clear", tile, bombs: g.bombs, won }; }
+  return { result: "safe", tile };
+}
+function minesCashOut(u) {
+  const g = u.mines; if (!g) throw new GameError("No Mines game to cash out.");
+  if (!g.revealed.length) throw new GameError("Flip at least one tile first.");
+  u.wallet += g.pot; u.earned += g.pot; u.mines = null;
+  return g.pot;
+}
+
+/* ---------- Slots: three digit reels ---------- */
+const SLOTS_BET = 300;
+function slotsSpin(u) {
+  takeTicket(u);
+  const reels = [rand(10), rand(10), rand(10)];
+  const [a, b, c] = reels;
+  let mult = 0, label = "No match";
+  if (a === 7 && b === 7 && c === 7) { mult = 100; label = "Jackpot 777!"; }
+  else if (a === b && b === c) { mult = 25; label = "Three of a kind"; }
+  else if (b === a + 1 && c === b + 1) { mult = 10; label = "Straight"; }
+  else if (a === b || b === c || a === c) { mult = 2; label = "Pair"; }
+  const won = SLOTS_BET * mult;
+  if (won) { u.wallet += won; u.earned += won; }
+  return { reels, mult, label, won };
+}
+
+/* ---------- Pick a Digit: guess the digit the server rolls ---------- */
+const PICK_BET = 300;
+function pickPlay(u, digit) {
+  if (!Number.isInteger(digit) || digit < 0 || digit > 9) throw new GameError("Pick a digit from 0 to 9.");
+  takeTicket(u);
+  const roll = rand(10), off = Math.min((roll - digit + 10) % 10, (digit - roll + 10) % 10);
+  const mult = off === 0 ? 8 : off === 1 ? 1 : 0;
+  const won = PICK_BET * mult;
+  if (won) { u.wallet += won; u.earned += won; }
+  return { roll, digit, mult, won, result: off === 0 ? "exact" : off === 1 ? "close" : "miss" };
+}
+
 /* ---------- what the browser gets ---------- */
 function streak(u, todayKey) {
   const keys = new Set(Object.keys(u.days));
@@ -249,6 +306,7 @@ function publicState(u, todayKey) {
     wallet: u.wallet, earned: u.earned, totalRolls: u.totalRolls, best: u.best,
     charges: u.charges, cap, waitMs: iv, nextChargeAt: u.charges < cap ? u.lastCharge + iv : null,
     tickets: u.tickets, ticketCap: TICKET_CAP, nextTicketAt: u.tickets < TICKET_CAP ? u.lastTicket + TICKET_EVERY : null,
+    mines: u.mines ? { revealed: u.mines.revealed, pot: u.mines.pot, next: minesNext(u.mines) } : null,
     wheelReadyAt: u.wheelAt + DAY, hilo: u.hilo ? { ...u.hilo, odds: { hi: hiloPayout(u.hilo.card, "hi"), lo: hiloPayout(u.hilo.card, "lo") } } : null,
     owned: u.owned, charms: u.charms, wear: u.wear,
     history: u.history.slice(0, 30), badgeCounts: u.badgeCounts,
@@ -260,6 +318,9 @@ const catalog = {
   charms: CHARMS.map(({ id, sym, kind, name, desc, price }) => ({ id, sym, kind, name, desc, price })),
   wheel: WHEEL.map(w => w.label),
   hilo: { start: HILO_START, maxRounds: HILO_MAX_ROUNDS },
+  mines: { tiles: MINES_TILES, count: MINES_COUNT, start: MINES_START },
+  slots: { bet: SLOTS_BET, pays: [["777", 100], ["Three of a kind", 25], ["Straight, like 345", 10], ["Pair", 2]] },
+  pick: { bet: PICK_BET, exact: 8, close: 1 },
 };
 
-module.exports = { GameError, newUser, resetProgress, doRoll, buy, wear, spinWheel, hiloStart, hiloGuess, hiloCashOut, publicState, catalog, sync };
+module.exports = { GameError, newUser, resetProgress, doRoll, buy, wear, spinWheel, hiloStart, hiloGuess, hiloCashOut, minesStart, minesPick, minesCashOut, slotsSpin, pickPlay, publicState, catalog, sync };

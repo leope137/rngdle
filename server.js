@@ -116,6 +116,11 @@ app.post("/api/wheel", auth, act(u => ({ spin: G.spinWheel(u) })));
 app.post("/api/hilo/start", auth, act(u => ({ game: G.hiloStart(u) })));
 app.post("/api/hilo/guess", auth, act((u, req) => ({ guess: G.hiloGuess(u, req.body.dir) })));
 app.post("/api/hilo/cashout", auth, act(u => ({ won: G.hiloCashOut(u) })));
+app.post("/api/mines/start", auth, act(u => G.minesStart(u)));
+app.post("/api/mines/pick", auth, act((u, req) => ({ pick: G.minesPick(u, req.body.tile) })));
+app.post("/api/mines/cashout", auth, act(u => ({ won: G.minesCashOut(u) })));
+app.post("/api/slots/spin", auth, act(u => ({ spin: G.slotsSpin(u) })));
+app.post("/api/pick/play", auth, act((u, req) => ({ pick: G.pickPlay(u, req.body.digit) })));
 app.post("/api/reset", auth, act(u => ({ __replace: G.resetProgress(u) })));
 
 app.get("/api/leaderboard", auth, async (req, res) => {
