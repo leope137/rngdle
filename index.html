@@ -441,18 +441,22 @@ const tierOf = d => TIERS.find(t => d.p <= t.max);
 /* ---------- formatting ---------- */
 const fmt = n => n.toLocaleString("en-US");
 const fmtMult = m => m < 10 ? "×" + (+m.toFixed(2)) : m < 100 ? "×" + (+m.toFixed(1)) : "×" + fmt(Math.round(m));
-const NAMES = ["", "thousand", "million", "billion", "trillion", "quadrillion", "quintillion", "sextillion", "septillion", "octillion", "nonillion", "decillion", "undecillion", "duodecillion", "tredecillion", "quattuordecillion", "quindecillion", "sexdecillion", "septendecillion", "octodecillion", "novemdecillion", "vigintillion"];
-// under a million: exact. A million and up: first 3 digits, then zeros
-function fullNum(lg) {
+const NAMES = ["", "thousand", "million", "billion", "trillion", "quadrillion", "quintillion", "sextillion", "septillion", "octillion", "nonillion", "decillion", "undecillion", "duodecillion", "tredecillion", "quattuordecillion", "quindecillion", "sexdecillion", "septendecillion", "octodecillion", "novemdecillion", "vigintillion", "unvigintillion", "duovigintillion", "trevigintillion", "quattuorvigintillion", "quinvigintillion", "sexvigintillion", "septenvigintillion", "octovigintillion", "novemvigintillion", "trigintillion", "untrigintillion", "duotrigintillion"];
+// under a quadrillion: first 3 digits, then zeros. A quadrillion and up: "2.53 quintillion"
+function digitsNum(lg) {
   if (lg < 6) return fmt(Math.round(Math.pow(10, lg)));
   const e = Math.floor(lg), m = Math.pow(10, lg - e);
   return (BigInt(Math.round(m * 100)) * 10n ** BigInt(e - 2)).toLocaleString("en-US");
 }
 function wordNum(lg) {
-  if (lg < 6) return fullNum(lg);
-  const g = Math.floor(Math.floor(lg + 1e-9) / 3);
-  return g < NAMES.length ? `${(+Math.pow(10, lg - 3 * g).toPrecision(3))} ${NAMES[g]}` : fullNum(lg);
+  if (lg < 6) return digitsNum(lg);
+  let g = Math.floor(Math.floor(lg + 1e-9) / 3), m = +Math.pow(10, lg - 3 * g).toPrecision(3);
+  if (m >= 1000) { g += 1; m = +(m / 1000).toPrecision(3); } // 999.9 rounds up to the next name
+  if (g < NAMES.length) return `${m} ${NAMES[g]}`;
+  const e = Math.floor(lg + 1e-9);
+  return `${(+Math.pow(10, lg - e).toPrecision(3))} × 10^${e}`;
 }
+function fullNum(lg) { return lg >= 14.9998 ? wordNum(lg) : digitsNum(lg); }
 const fmtPts = x => x < 1e6 ? fmt(Math.floor(x)) : fullNum(Math.log10(x));
 const fmtS = str => str.replace(/\B(?=(\d{3})+(?!\d))/g, ",");
 const pad = x => String(x).padStart(2, "0");
@@ -519,7 +523,7 @@ const localEval = s => { const ids = B.evaluate(s).filter(id => byId[id]).sort((
 
 function paintScore(lg) {
   const el = $("score"); el.hidden = false;
-  el.innerHTML = `<div class="big">${fullNum(lg)}</div><div class="word">${lg >= 6 ? wordNum(lg) + " points" : "points"}${practice ? " · practice, not saved" : ""}</div>`;
+  el.innerHTML = `<div class="big">${fullNum(lg)}</div><div class="word">${lg >= 6 && lg < 14.9998 ? wordNum(lg) + " points" : "points"}${practice ? " · practice, not saved" : ""}</div>`;
 }
 function paintRarest(badges) {
   if (!badges.length) { $("rarest").hidden = true; return; }
