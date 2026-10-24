@@ -1045,7 +1045,7 @@ setInterval(() => { if (S && !$("gameView").hidden && !busy) loadLeaderboard(); 
   try {
     const [cat, probs] = await Promise.all([fetch("/api/catalog").then(r => r.json()), fetch("/probs.json").then(r => r.json())]);
     CAT = cat;
-    DEFS = B.defs.map((d, i) => { const p = probs[i], mult = Math.pow(1 / p, 0.75); return { ...d, p, mult, lg: Math.log10(mult) }; });
+    DEFS = B.defs.map((d, i) => { const p = probs[i], mult = Math.pow(1 / p, 0.6); return { ...d, p, mult, lg: Math.log10(mult) }; });
     byId = Object.fromEntries(DEFS.map(d => [d.id, d]));
   } catch (e) { $("loading").innerHTML = `<p class="note" style="text-align:center">Can't reach the server. Refresh to try again.</p>`; return; }
   try { await enterGame(); } catch (e) { if ($("authView").hidden) showAuth(); }
