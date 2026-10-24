@@ -4,8 +4,8 @@ const makeBadges = require("./badges.js");
 const PROBS = require("./probs.json");
 
 const B = makeBadges();
-// multiplier = (1 / chance) ^ 0.75
-const DEFS = B.defs.map((d, i) => { const p = PROBS[i]; const mult = Math.pow(1 / p, 0.75); return { ...d, p, mult, lg: Math.log10(mult) }; });
+// multiplier = (1 / chance) ^ 0.6  — lower exponent compresses the spread between common and rare rolls
+const DEFS = B.defs.map((d, i) => { const p = PROBS[i]; const mult = Math.pow(1 / p, 0.6); return { ...d, p, mult, lg: Math.log10(mult) }; });
 const byId = Object.fromEntries(DEFS.map(d => [d.id, d]));
 // gold for rare badges: Rare 2, Epic 8, Legendary 30
 const goldFor = id => { const p = byId[id].p; return p <= 1e-4 ? 30 : p <= 1e-3 ? 8 : p <= 1e-2 ? 2 : 0; };
